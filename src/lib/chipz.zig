@@ -20,7 +20,6 @@ const default_font = [_]u8 {
     0xF0, 0x80, 0xF0, 0x80, 0x80  // F
 };
 
-
 pub const ChipZ = struct {
     memory: [4096]u8,
     display: [64][32]bool,
@@ -126,10 +125,12 @@ pub const ChipZ = struct {
             var x: u4 = 0;
             while (x < 8) : ( x += 1) {
                 if(((@intCast(usize, sprite_line) >> (7-x)) & 1)== 1) {
-                    if(self.display[col+x][lin+index_sprite]) {
+                    const coord_x = (col+x)%64;
+                    const coord_y = (lin+index_sprite)%32;
+                    if(self.display[coord_x][coord_y]) {
                         self.registers[0xF] = self.registers[0xF] | 1;
                     }
-                    self.display[col+x][lin+index_sprite] = !self.display[col+x][lin+index_sprite];
+                    self.display[coord_x][coord_y] = !self.display[coord_x][coord_y];
                 }
             }
         }
