@@ -30,6 +30,10 @@ pub const ChipZ = struct {
     index_register: u16,
     registers: [16]u8,
 
+    flags : struct {
+        display_update: bool,  
+    },
+
     pub fn init(allocator: *std.mem.Allocator) ChipZ {
         var chip = ChipZ{
             .memory = [1]u8{0} ** 4096,
@@ -39,12 +43,22 @@ pub const ChipZ = struct {
             .timer_sound = 0,
             .program_counter = 0,
             .index_register = 0,
-            .registers = [_]u8{0} ** 16
+            .registers = [_]u8{0} ** 16,
+            .flags = .{
+                .display_update = false
+            }
         };
 
         chip.set_font(default_font);
 
         return chip;
+    }
+
+    pub fn load_program(self: *ChipZ, program: []u8) void {
+        for(program) |byte, index| {
+            self.memory[index+0x200] = byte;
+        }
+        self.program_counter = 0x200;
     }
 
     pub fn deinit(self: *ChipZ) void {
@@ -78,6 +92,7 @@ pub const ChipZ = struct {
     }
 
     pub fn cycle(self: *ChipZ) void {
+        self.flags.display_update = false;
         self.decode_and_execute(self.fetch());
     }
 
@@ -120,8 +135,8 @@ pub const ChipZ = struct {
     /// As described above, VF is set to 1 if any screen pixels are flipped from set to unset when the sprite is drawn, and to 0 if that doesn’t happen
     fn op_DXYN(self: *ChipZ, col: u8, lin: u8, base_height: u4) void {
         self.registers[0xF] = 0;
-
-        for (self.memory[self.index_register..self.index_register+base_height+1]) |sprite_line, index_sprite| {
+        self.flags.display_update = true;
+        for (self.memory[self.index_register..self.index_register+base_height]) |sprite_line, index_sprite| {
             var x: u4 = 0;
             while (x < 8) : ( x += 1) {
                 if(((@intCast(usize, sprite_line) >> (7-x)) & 1)== 1) {

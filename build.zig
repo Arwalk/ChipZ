@@ -34,16 +34,16 @@ pub fn build(b: *std.build.Builder) void {
 
     const lib = b.addSharedLibrary("chipz-lib", "src/lib/chipz.zig", .unversioned);
 
-    //const exe = b.addExecutable("chipz", "src/main.zig");
-    //exe.setTarget(target);
-    //exe.setBuildMode(mode);
-    //exe.install();
+    const exe = b.addExecutable("chipz", "src/main.zig");
+    exe.setTarget(target);
+    exe.setBuildMode(mode);
+    exe.install();
 
-    // const run_cmd = exe.run();
-    // run_cmd.step.dependOn(b.getInstallStep());
-    // if (b.args) |args| {
-    //     run_cmd.addArgs(args);
-    // }
+    const run_cmd = exe.run();
+    run_cmd.step.dependOn(b.getInstallStep());
+    if (b.args) |args| {
+        run_cmd.addArgs(args);
+    }
 
     const build_lib_step = b.step("build_lib", "Build the lib");
     build_lib_step.dependOn(&lib.step);
@@ -66,6 +66,6 @@ pub fn build(b: *std.build.Builder) void {
         test_step.dependOn(&test_def.step);
     }
 
-    //const run_step = b.step("run", "Run the app");
-    //run_step.dependOn(&run_cmd.step);
+    const run_step = b.step("run", "Run the app");
+    run_step.dependOn(&run_cmd.step);
 }

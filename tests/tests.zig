@@ -51,9 +51,9 @@ test "display simple" {
     //setting up instruction
     // drawing 3 height sprite at 0,0
     emu.memory[0] = 0xD0;
-    emu.memory[1] = 0x02;
+    emu.memory[1] = 0x03;
     emu.memory[2] = 0xD0;
-    emu.memory[3] = 0x02;
+    emu.memory[3] = 0x03;
 
     // setting up sprite
     emu.memory[0x200] = 0x3C;
@@ -117,5 +117,25 @@ test "display simple" {
     expect_equal(emu.display[6][2], false);
     expect_equal(emu.display[7][2], false);
     expect_equal(emu.registers[0xF], 1);
+
+}
+
+test "ibm" {
+    var emu = chipz.ChipZ.init(test_allocator);
+    const ibm = @embedFile("../demo_files/IBM Logo.ch8");
+
+    var ibm_data : [132]u8 = [_]u8{0} ** 132;
+    for (ibm) |byte, index| ibm_data[index] = byte; 
+
+    emu.load_program(&ibm_data);
+    emu.cycle();
+    emu.cycle();
+    expect_equal(emu.index_register, 0x22A);
+    
+    emu.cycle();
+    expect_equal(emu.registers[0], 0x0C);
+    
+    emu.cycle();
+    expect_equal(emu.registers[1], 0x08);
 
 }
