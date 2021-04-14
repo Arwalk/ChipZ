@@ -21,11 +21,12 @@ const readCharStr = (ptr, len) => {
 const canvas = document.getElementById("canvas");
 
 const gl = canvas.getContext('2d');
-
+gl.scale(2, 2);
 
 fetchAndInstantiate('main_web.wasm', {}).then(function(instance) {
   instance.exports.onInit();
   var memory = instance.exports.memory;
+
 
   var imgd = new Uint8ClampedArray(memory.buffer, 0, 64*32*4);
   for (let index = 0; index < imgd.length; index++) {
@@ -37,8 +38,10 @@ fetchAndInstantiate('main_web.wasm', {}).then(function(instance) {
     onAnimationFrame(timestamp);
     if (instance.exports.need_display_update()) {
         instance.exports.get_display_data(imgd.byteOffset);
+        var internal_canvas = document.createElement('canvas')
+        var internal_context = internal_canvas.getContext("2d");
 
-        var imgData = gl.createImageData(64, 32); // width x height
+        var imgData = internal_context.createImageData(64, 32); // width x height
         var data = imgData.data;
 
         for (var i = 0, len = 64 * 32 * 4; i < len; i++) {
@@ -46,7 +49,8 @@ fetchAndInstantiate('main_web.wasm', {}).then(function(instance) {
         }
 
         // now we can draw our imagedata onto the canvas
-        gl.putImageData(imgData, 0, 0);
+        internal_context.putImageData(imgData, 0, 0);
+        gl.drawImage(internal_canvas, 0, 0, 64, 32, 0, 0, 64*4, 32*4);
     }
     window.requestAnimationFrame(step);
   }
