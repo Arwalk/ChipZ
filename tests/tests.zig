@@ -119,23 +119,3 @@ test "display simple" {
     expect_equal(emu.registers[0xF], 1);
 
 }
-
-test "ibm" {
-    var emu = chipz.ChipZ.init(test_allocator);
-    const ibm = @embedFile("../demo_files/IBM Logo.ch8");
-
-    var ibm_data : [132]u8 = [_]u8{0} ** 132;
-    for (ibm) |byte, index| ibm_data[index] = byte; 
-
-    emu.load_program(&ibm_data);
-    emu.cycle();
-    emu.cycle();
-    expect_equal(emu.index_register, 0x22A);
-    
-    emu.cycle();
-    expect_equal(emu.registers[0], 0x0C);
-    
-    emu.cycle();
-    expect_equal(emu.registers[1], 0x08);
-
-}

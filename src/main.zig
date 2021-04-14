@@ -31,6 +31,7 @@ pub fn main() anyerror!void {
         if(emu.flags.display_update) {
             while(x < 32) : (x += 1) {
                 try stdout.print("\n", .{});
+                y = 0;
                 while (y < 64) : (y += 1) {
                     if(emu.display[y][x]) {
                         try stdout.print("H", .{});

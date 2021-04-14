@@ -133,13 +133,15 @@ pub const ChipZ = struct {
     /// Draws a sprite at coordinate (VX, VY) that has a width of 8 pixels and a height of N+1 pixels.
     /// Each row of 8 pixels is read as bit-coded starting from memory location I; I value doesn’t change after the execution of this instruction.
     /// As described above, VF is set to 1 if any screen pixels are flipped from set to unset when the sprite is drawn, and to 0 if that doesn’t happen
-    fn op_DXYN(self: *ChipZ, col: u8, lin: u8, base_height: u4) void {
+    fn op_DXYN(self: *ChipZ, r_col: u8, r_lin: u8, base_height: u4) void {
+        const col = self.registers[r_col];
+        const lin = self.registers[r_lin];
         self.registers[0xF] = 0;
         self.flags.display_update = true;
         for (self.memory[self.index_register..self.index_register+base_height]) |sprite_line, index_sprite| {
             var x: u4 = 0;
             while (x < 8) : ( x += 1) {
-                if(((@intCast(usize, sprite_line) >> (7-x)) & 1)== 1) {
+                if(((@intCast(usize, sprite_line) >> (7-x)) & 1) == 1) {
                     const coord_x = (col+x)%64;
                     const coord_y = (lin+index_sprite)%32;
                     if(self.display[coord_x][coord_y]) {
