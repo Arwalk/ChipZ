@@ -1,5 +1,6 @@
 const std = @import("std");
 
+const sdl_path = @embedFile("sdl_path.txt");
 
 const PackageDef = struct {
     name : [] const u8,
@@ -37,6 +38,11 @@ pub fn build(b: *std.build.Builder) void {
     const exe = b.addExecutable("chipz", "src/main.zig");
     exe.setTarget(target);
     exe.setBuildMode(mode);
+    exe.addIncludeDir(sdl_path ++ "include");
+    exe.addLibPath(sdl_path ++ "lib\\x64");
+    b.installBinFile(sdl_path ++ "lib\\x64\\SDL2.dll", "SDL2.dll");
+    exe.linkSystemLibrary("sdl2");
+    exe.linkLibC();
     exe.install();
 
     const run_cmd = exe.run();
