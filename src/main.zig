@@ -9,7 +9,7 @@ pub fn main() anyerror!void {
     _ = c.SDL_Init(c.SDL_INIT_VIDEO);
     defer c.SDL_Quit();
 
-    var window = c.SDL_CreateWindow("hello gamedev", c.SDL_WINDOWPOS_CENTERED, c.SDL_WINDOWPOS_CENTERED, 640, 320, 0);
+    var window = c.SDL_CreateWindow("chipz", c.SDL_WINDOWPOS_CENTERED, c.SDL_WINDOWPOS_CENTERED, 64, 32, 0);
     defer c.SDL_DestroyWindow(window);
 
     var renderer = c.SDL_CreateRenderer(window, 0, c.SDL_RENDERER_PRESENTVSYNC);
@@ -36,27 +36,52 @@ pub fn main() anyerror!void {
     var x : usize = 0;
     var y : usize = 0;
 
-    var rect = c.SDL_Rect{ .x = 0, .y = 0, .w = 10, .h = 10 };
+    var size_mult : c_int = 10;
+    var rect = c.SDL_Rect{ .x = 0, .y = 0, .w = size_mult, .h = size_mult };
+
+    var current_window_h : c_int = size_mult*32;
+    var current_window_w : c_int = size_mult*64;
+    c.SDL_SetWindowSize(window, current_window_w, current_window_h);
 
     mainloop: while(true) {
         var sdl_event: c.SDL_Event = undefined;
+        var force_redraw: bool = false;
+        defer force_redraw = false;
         while (c.SDL_PollEvent(&sdl_event) != 0) {
             switch (sdl_event.type) {
                 c.SDL_QUIT => break :mainloop,
+                c.SDL_KEYDOWN => {
+                    switch(sdl_event.key.keysym.sym){
+
+                       c.SDLK_UP => {
+                           size_mult += 1;
+                           current_window_h = size_mult*32;
+                           current_window_w = size_mult*64;
+                           c.SDL_SetWindowSize(window, current_window_w, current_window_h);
+                           c.SDL_RenderPresent(renderer);
+                           rect.w = size_mult;
+                           rect.h = size_mult;
+                           force_redraw = true;
+                       },
+                      
+                       else => {},
+                    }
+                },
                 else => {},
             }
         }
         emu.cycle();
         x = 0;
         y = 0;
-        if(emu.flags.display_update) {
+
+        if(emu.flags.display_update or force_redraw) {
             _ = c.SDL_SetRenderDrawColor(renderer, 0xff, 0xff, 0xff, 0xff);
             _ = c.SDL_RenderClear(renderer);
             while(x < 32) : (x += 1) {
                 y = 0;
                 while (y < 64) : (y += 1) {
-                    rect.x = 10 * @intCast(c_int, y);
-                    rect.y = 10 *  @intCast(c_int, x);
+                    rect.x = size_mult * @intCast(c_int, y);
+                    rect.y = size_mult * @intCast(c_int, x);
                     if(emu.display[y][x]) {
                         _ = c.SDL_SetRenderDrawColor(renderer, 0xff, 0xff, 0xff, 0xff);
                         _ = c.SDL_RenderFillRect(renderer, &rect);
