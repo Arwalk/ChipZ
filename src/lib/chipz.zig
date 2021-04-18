@@ -198,6 +198,32 @@ pub const ChipZ = struct {
         self.registers[x] =  self.registers[y];
     }
 
+    /// VX is set to the bitwise logical disjunction (OR) of VX and VY.
+    fn op_8XY1(self: *ChipZ, x: u4, y: u4) void {
+        self.registers[x] =  self.registers[x] | self.registers[y];
+    }
+
+    /// VX is set to the bitwise logical conjunction (AND) of VX and VY
+    fn op_8XY2(self: *ChipZ, x: u4, y: u4) void {
+        self.registers[x] =  self.registers[x] & self.registers[y];
+    }
+
+    /// VX is set to the bitwise exclusive OR (XOR) of VX and VY. 
+    fn op_8XY3(self: *ChipZ, x: u4, y: u4) void {
+        self.registers[x] =  self.registers[x] ^ self.registers[y];
+    }
+
+    fn op_8XY4(self: *ChipZ, x: u4, y: u4) void {
+        const overflow = @addWithOverflow(u8, self.registers[x], self.registers[y], &self.registers[x]);
+        if(overflow) {
+            self.registers[0xF] = 1;
+        }
+        else
+        {
+            self.registers[0xF] = 0;
+        }
+    }
+
     fn decode_and_execute(self: *ChipZ, opcode: u16) void {
         const first_nibble : u4 = @intCast(u4, (opcode & 0xF000) >> 12);
         switch(first_nibble) {
@@ -226,18 +252,10 @@ pub const ChipZ = struct {
                 const last_nibble : u4 = @intCast(u4, opcode & 0xF);
                 switch (last_nibble) {
                     0x0 => self.op_8XY0(get_x(opcode), get_y(opcode)),
-                    0x1 => {
-                        // Sets VX to VX or VY. (Bitwise OR operation)
-                    },
-                    0x2 => {
-                        // Sets VX to VX and VY. (Bitwise AND operation)
-                    },
-                    0x3 => {
-                        // Sets VX to VX xor VY.
-                    },
-                    0x4 => {
-                        // Adds VY to VX. VF is set to 1 when there's a carry, and to 0 when there isn't.
-                    },
+                    0x1 => self.op_8XY1(get_x(opcode), get_y(opcode)),
+                    0x2 => self.op_8XY2(get_x(opcode), get_y(opcode)),
+                    0x3 => self.op_8XY3(get_x(opcode), get_y(opcode)),
+                    0x4 => self.op_8XY4(get_x(opcode), get_y(opcode)),
                     0x5 => {
                         // VY is subtracted from VX. VF is set to 0 when there's a borrow, and 1 when there isn't.
                     },
