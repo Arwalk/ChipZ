@@ -154,41 +154,78 @@ pub const ChipZ = struct {
         
     }
 
+    /// return from subroutine
+    fn op_00EE(self: *ChipZ) void {
+        self.program_counter = self.stack.pop();
+    }
+
+    /// start subroutine
+    fn op_2NNN(self: *ChipZ, address: u12) void {
+        self.stack.append(self.program_counter) catch |err| @panic("Error on pushing on stack");
+        self.program_counter = address;
+    }
+
+    /// skip instruction if VX == value
+    fn op_3XNN(self: *ChipZ, register: u4, value: u8) void {
+        if(self.registers[register] == value) {
+            self.program_counter += 2;
+        }
+    }
+
+    /// skip instruction if VX != value
+    fn op_4XNN(self: *ChipZ, register: u4, value: u8) void {
+        if(self.registers[register] != value) {
+            self.program_counter += 2;
+        }
+    }
+
+    /// skip instruction if VX == VY
+    fn op_5XY0(self: *ChipZ, register_a: u4, register_b: u4) void {
+        if(self.registers[register_a] == self.registers[register_b]) {
+            self.program_counter += 2;
+        }
+    }
+
+    /// skip instruction if VX != VY
+    fn op_9XY0(self: *ChipZ, register_a: u4, register_b: u4) void {
+        if(self.registers[register_a] != self.registers[register_b]) {
+            self.program_counter += 2;
+        }
+    }
+
+    /// Sets VX to the value of VY.
+    fn op_8XY0(self: *ChipZ, x: u4, y: u4) void {
+        self.registers[x] =  self.registers[y];
+    }
+
     fn decode_and_execute(self: *ChipZ, opcode: u16) void {
         const first_nibble : u4 = @intCast(u4, (opcode & 0xF000) >> 12);
         switch(first_nibble) {
             0x0 => {
                 switch(opcode) {
                     0x00E0 => self.op_00E0(),
-                    0x00EE => {
-                        // Returns from a subroutine.
-                    },
+                    0x00EE => self.op_00EE(),
                     else => {
-                        // Calls machine code routine (RCA 1802 for COSMAC VIP) at address NNN. Not necessary for most ROMs.
+                        @panic("0x0NNN requires knowledge of the machine running the code.");// Calls machine code routine (RCA 1802 for COSMAC VIP) at address NNN. Not necessary for most ROMs.
                     }
                 }
             },
             0x1 => self.op_1NNN(get_address(opcode)),
-            0x2 => {
-                // Calls subroutine at NNN.
-            },
-            0x3 => {
-                // Skips the next instruction if VX equals NN. (Usually the next instruction is a jump to skip a code block)
-            },
-            0x4 => {
-                // Skips the next instruction if VX doesn't equal NN. (Usually the next instruction is a jump to skip a code block)
-            },
+            0x2 => self.op_2NNN(get_address(opcode)),
+            0x3 => self.op_3XNN(get_x(opcode), get_8bitconstant(opcode)),
+            0x4 => self.op_4XNN(get_x(opcode), get_8bitconstant(opcode)),
             0x5 => {
-                // Skips the next instruction if VX equals VY. (Usually the next instruction is a jump to skip a code block)
+                if((opcode & 0xF) == 0){
+                    self.op_5XY0(get_x(opcode), get_y(opcode));
+                }
+                else @panic("Unknown instruction!");
             },
             0x6 => self.op_6XNN(get_x(opcode), get_8bitconstant(opcode)),
             0x7 => self.op_7XNN(get_x(opcode), get_8bitconstant(opcode)),
             0x8 => {
                 const last_nibble : u4 = @intCast(u4, opcode & 0xF);
                 switch (last_nibble) {
-                    0x0 => {
-                        // Sets VX to the value of VY.
-                    },
+                    0x0 => self.op_8XY0(get_x(opcode), get_y(opcode)),
                     0x1 => {
                         // Sets VX to VX or VY. (Bitwise OR operation)
                     },
@@ -218,7 +255,7 @@ pub const ChipZ = struct {
             },
             0x9 => {
                 if((opcode & 0xF) == 0){
-                    // Skips the next instruction if VX doesn't equal VY. (Usually the next instruction is a jump to skip a code block)
+                    self.op_9XY0(get_x(opcode), get_y(opcode));
                 }
                 else @panic("Unknown instruction!");
             },
