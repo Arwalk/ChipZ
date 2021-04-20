@@ -1,4 +1,5 @@
 const std = @import("std");
+const random = std.crypto.random;
 const Stack = std.ArrayList(u16);
 
 const default_font = [_]u8 {
@@ -36,6 +37,7 @@ pub const ChipZ = struct {
 
     configuration: struct {
         shift_operations_sets_ry_into_rx: bool,
+        bnnn_is_bxnn: bool,
     },
 
     pub fn init(allocator: *std.mem.Allocator) ChipZ {
@@ -52,7 +54,8 @@ pub const ChipZ = struct {
                 .display_update = false
             },
             .configuration = .{
-                .shift_operations_sets_ry_into_rx = true,   
+                .shift_operations_sets_ry_into_rx = true,
+                .bnnn_is_bxnn = false
             }
         };
 
@@ -273,9 +276,50 @@ pub const ChipZ = struct {
         
     }
 
+    /// BNNN: Jump with offset
+    fn op_BNNN(self: *ChipZ, opcode: u16) void {
+        if(self.configuration.bnnn_is_bxnn){
+            const address = get_8bitconstant(opcode);
+            const x = get_x(opcode);
+
+            self.program_counter = address + self.registers[x];
+        }
+        else
+        {
+            const address = get_address(opcode);
+            self.program_counter = address + self.registers[0];
+        }
+    }
+
+    /// This instruction generates a random number, binary ANDs it with the value NN, and puts the result in VX.
+    fn op_CXNN(self: *ChipZ, x: u4, value: u8) void {
+        const rand = random.int(u8);
+        self.registers[x] = rand & value;
+    }
+
+    const OpDetails = struct {
+        first_nibble : u4,
+        x: u4,
+        y: u4,
+        n: u4,
+        nn: u8,
+        address: u12,
+
+        fn get(opcode: u16) OpDetails {
+            return OpDetails {
+                .first_nibble = @intCast(u4, (opcode & 0xF000) >> 12),
+                .x = get_x(opcode),
+                .y = get_y(opcode),
+                .n = get_4bitconstant(opcode),
+                .nn = get_8bitconstant(opcode),
+                .address = get_address(opcode)
+            };
+        }
+    };
+
     fn decode_and_execute(self: *ChipZ, opcode: u16) void {
-        const first_nibble : u4 = @intCast(u4, (opcode & 0xF000) >> 12);
-        switch(first_nibble) {
+        const op = OpDetails.get(opcode);
+        switch(op.first_nibble) {
             0x0 => {
                 switch(opcode) {
                     0x00E0 => self.op_00E0(),
@@ -285,47 +329,43 @@ pub const ChipZ = struct {
                     }
                 }
             },
-            0x1 => self.op_1NNN(get_address(opcode)),
-            0x2 => self.op_2NNN(get_address(opcode)),
-            0x3 => self.op_3XNN(get_x(opcode), get_8bitconstant(opcode)),
-            0x4 => self.op_4XNN(get_x(opcode), get_8bitconstant(opcode)),
+            0x1 => self.op_1NNN(op.address),
+            0x2 => self.op_2NNN(op.address),
+            0x3 => self.op_3XNN(op.x, op.nn),
+            0x4 => self.op_4XNN(op.x, op.nn),
             0x5 => {
                 if((opcode & 0xF) == 0){
-                    self.op_5XY0(get_x(opcode), get_y(opcode));
+                    self.op_5XY0(op.x, op.y);
                 }
                 else @panic("Unknown instruction!");
             },
-            0x6 => self.op_6XNN(get_x(opcode), get_8bitconstant(opcode)),
-            0x7 => self.op_7XNN(get_x(opcode), get_8bitconstant(opcode)),
+            0x6 => self.op_6XNN(op.x, op.nn),
+            0x7 => self.op_7XNN(op.x, op.nn),
             0x8 => {
                 const last_nibble : u4 = @intCast(u4, opcode & 0xF);
                 switch (last_nibble) {
-                    0x0 => self.op_8XY0(get_x(opcode), get_y(opcode)),
-                    0x1 => self.op_8XY1(get_x(opcode), get_y(opcode)),
-                    0x2 => self.op_8XY2(get_x(opcode), get_y(opcode)),
-                    0x3 => self.op_8XY3(get_x(opcode), get_y(opcode)),
-                    0x4 => self.op_8XY4(get_x(opcode), get_y(opcode)),
-                    0x5 => self.op_8XY5(get_x(opcode), get_y(opcode)),
-                    0x6 => self.op_8XY6(get_x(opcode), get_y(opcode)),
-                    0x7 => self.op_8XY7(get_x(opcode), get_y(opcode)),
-                    0xE => self.op_8XYE(get_x(opcode), get_y(opcode)),
+                    0x0 => self.op_8XY0(op.x, op.y),
+                    0x1 => self.op_8XY1(op.x, op.y),
+                    0x2 => self.op_8XY2(op.x, op.y),
+                    0x3 => self.op_8XY3(op.x, op.y),
+                    0x4 => self.op_8XY4(op.x, op.y),
+                    0x5 => self.op_8XY5(op.x, op.y),
+                    0x6 => self.op_8XY6(op.x, op.y),
+                    0x7 => self.op_8XY7(op.x, op.y),
+                    0xE => self.op_8XYE(op.x, op.y),
                     else => @panic("Unknown instruction!"),
                 }
             },
             0x9 => {
                 if((opcode & 0xF) == 0){
-                    self.op_9XY0(get_x(opcode), get_y(opcode));
+                    self.op_9XY0(op.x, op.y);
                 }
                 else @panic("Unknown instruction!");
             },
-            0xA => self.op_ANNN(get_address(opcode)),
-            0xB => {
-                // Jumps to the address NNN plus V0.
-            },
-            0xC => {
-                // Sets VX to the result of a bitwise and operation on a random number (Typically: 0 to 255) and NN.
-            },
-            0xD => self.op_DXYN(get_x(opcode), get_y(opcode), get_4bitconstant(opcode)),
+            0xA => self.op_ANNN(op.address),
+            0xB => self.op_BNNN(opcode),
+            0xC => self.op_CXNN(op.x, op.nn),
+            0xD => self.op_DXYN(op.x, op.y, op.n),
             0xE => {
                 const last_byte : u8 = @intCast(u8, opcode & 0xFF);
                 switch (last_byte) {
