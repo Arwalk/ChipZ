@@ -34,6 +34,10 @@ pub const ChipZ = struct {
         display_update: bool,  
     },
 
+    configuration: struct {
+        shift_operations_sets_ry_into_rx: bool,
+    },
+
     pub fn init(allocator: *std.mem.Allocator) ChipZ {
         var chip = ChipZ{
             .memory = [1]u8{0} ** 4096,
@@ -46,6 +50,9 @@ pub const ChipZ = struct {
             .registers = [_]u8{0} ** 16,
             .flags = .{
                 .display_update = false
+            },
+            .configuration = .{
+                .shift_operations_sets_ry_into_rx = true,   
             }
         };
 
@@ -213,15 +220,57 @@ pub const ChipZ = struct {
         self.registers[x] =  self.registers[x] ^ self.registers[y];
     }
 
+    /// VX is set to the value of VX plus the value of VY
+    /// Unlike 7XNN, this addition will affect the carry flag. 
+    /// If the result is larger than 255 (and thus overflows the 8-bit register VX), the flag register VF is set to 1. 
+    /// If it doesn’t overflow, VF is set to 0.
     fn op_8XY4(self: *ChipZ, x: u4, y: u4) void {
         const overflow = @addWithOverflow(u8, self.registers[x], self.registers[y], &self.registers[x]);
-        if(overflow) {
-            self.registers[0xF] = 1;
+        self.registers[0xF] = if(overflow) 1 else 0;
+    }
+
+    /// sets VX to the result of VX - VY.
+    /// This subtraction will also affect the carry flag, but note that it’s opposite from what you might think.
+    /// If the minuend (the first operand) is larger than the subtrahend (second operand), VF will be set to 1.
+    /// If the subtrahend is larger, and we “underflow” the result, VF is set to 0.
+    /// Another way of thinking of it is that VF is set to 1 before the subtraction, and then the subtraction either borrows from VF (setting it to 0) or not.
+    fn op_8XY5(self: *ChipZ, x: u4, y: u4) void {
+        const overflow = @subWithOverflow(u8, self.registers[x], self.registers[y], &self.registers[x]);
+        self.registers[0xF] = if(self.registers[x] > self.registers[y])  1 else 0;
+
+    }
+
+    /// sets VX to the result of VY - VX.
+    /// This subtraction will also affect the carry flag, but note that it’s opposite from what you might think.
+    /// If the minuend (the first operand) is larger than the subtrahend (second operand), VF will be set to 1.
+    /// If the subtrahend is larger, and we “underflow” the result, VF is set to 0.
+    /// Another way of thinking of it is that VF is set to 1 before the subtraction, and then the subtraction either borrows from VF (setting it to 0) or not.
+    fn op_8XY7(self: *ChipZ, x: u4, y: u4) void {
+        const overflow = @subWithOverflow(u8, self.registers[y], self.registers[x], &self.registers[x]);
+        self.registers[0xF] = if (self.registers[y] > self.registers[x]) 1 else 0;
+    }
+
+    /// shift 1 bit right for vx
+    fn op_8XY6(self: *ChipZ, x: u4, y: u4) void {
+        if(self.configuration.shift_operations_sets_ry_into_rx) {
+            self.registers[x] = self.registers[y];
         }
-        else
-        {
-            self.registers[0xF] = 0;
+        
+        self.registers[0xF] = if(self.registers[x] & 1 == 1)  1 else 0;
+        
+        self.registers[x] = self.registers[x] >> 1;
+    }
+
+    /// shift 1 bit left for vx
+    fn op_8XYE(self: *ChipZ, x: u4, y: u4) void {
+        if(self.configuration.shift_operations_sets_ry_into_rx) {
+            self.registers[x] = self.registers[y];
         }
+        
+        const overflow = @shlWithOverflow(u8, self.registers[x], 1, &self.registers[x]);
+
+        self.registers[0xF] = if(overflow) 1 else 0;
+        
     }
 
     fn decode_and_execute(self: *ChipZ, opcode: u16) void {
@@ -256,18 +305,10 @@ pub const ChipZ = struct {
                     0x2 => self.op_8XY2(get_x(opcode), get_y(opcode)),
                     0x3 => self.op_8XY3(get_x(opcode), get_y(opcode)),
                     0x4 => self.op_8XY4(get_x(opcode), get_y(opcode)),
-                    0x5 => {
-                        // VY is subtracted from VX. VF is set to 0 when there's a borrow, and 1 when there isn't.
-                    },
-                    0x6 => {
-                        // Stores the least significant bit of VX in VF and then shifts VX to the right by 1.[b]
-                    },
-                    0x7 => {
-                        // Sets VX to VY minus VX. VF is set to 0 when there's a borrow, and 1 when there isn't.
-                    },
-                    0xE => {
-                        // Stores the most significant bit of VX in VF and then shifts VX to the left by 1.[b]
-                    },
+                    0x5 => self.op_8XY5(get_x(opcode), get_y(opcode)),
+                    0x6 => self.op_8XY6(get_x(opcode), get_y(opcode)),
+                    0x7 => self.op_8XY7(get_x(opcode), get_y(opcode)),
+                    0xE => self.op_8XYE(get_x(opcode), get_y(opcode)),
                     else => @panic("Unknown instruction!"),
                 }
             },
