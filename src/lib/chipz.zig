@@ -76,7 +76,7 @@ pub const ChipZ = struct {
                 .current_key_pressed = Key.None,
             },
             .configuration = .{
-                .shift_operations_sets_ry_into_rx = true,
+                .shift_operations_sets_ry_into_rx = false,
                 .bnnn_is_bxnn = false
             }
         };
@@ -261,8 +261,7 @@ pub const ChipZ = struct {
     /// Another way of thinking of it is that VF is set to 1 before the subtraction, and then the subtraction either borrows from VF (setting it to 0) or not.
     fn op_8XY5(self: *ChipZ, x: u4, y: u4) void {
         const overflow = @subWithOverflow(u8, self.registers[x], self.registers[y], &self.registers[x]);
-        self.registers[0xF] = if(self.registers[x] > self.registers[y])  1 else 0;
-
+        self.registers[0xF] = if(self.registers[x] > self.registers[y])  0 else 1;
     }
 
     /// sets VX to the result of VY - VX.
@@ -291,11 +290,10 @@ pub const ChipZ = struct {
         if(self.configuration.shift_operations_sets_ry_into_rx) {
             self.registers[x] = self.registers[y];
         }
-        
+
         const overflow = @shlWithOverflow(u8, self.registers[x], 1, &self.registers[x]);
 
-        self.registers[0xF] = if(overflow) 1 else 0;
-        
+        self.registers[0xF] = if(overflow) 1 else 0;   
     }
 
     /// BNNN: Jump with offset
@@ -384,12 +382,11 @@ pub const ChipZ = struct {
 
     /// BCD conversion
     fn op_FX33(self: *ChipZ, x: u4) void {
-        var index : usize = 2;
+        var index : usize = 3;
         var value = self.registers[x];
-        while(index >= 0) {
-            self.memory[self.index_register+index] = value % 10;
-            value /= 10;
-            if(index > 0) index -= 1 else break;
+        while(index > 0) : ( index -= 1 ){
+            self.memory[self.index_register+index-1] = value % 10;
+            value = @divTrunc(value, 10);
         }
     }
 
