@@ -393,6 +393,20 @@ pub const ChipZ = struct {
         }
     }
 
+    /// store in memory
+    fn op_FX55(self: *ChipZ, x: u4) void {
+        var index : usize = 0;
+        while (index <= x) : (index += 1) {
+            self.memory[self.index_register+index] = self.registers[index];
+        }
+    }
+
+    /// load from memory
+    fn op_FX65(self: *ChipZ, x: u4) void {
+        var index : usize = 0;
+        self.registers[index] = self.memory[self.index_register+index];
+    }
+
     const OpDetails = struct {
         first_nibble : u4,
         x: u4,
@@ -479,12 +493,8 @@ pub const ChipZ = struct {
                     0x1E => self.op_FX1E(op.x),
                     0x29 => self.op_FX29(op.x),
                     0x33 => self.op_FX33(op.x),
-                    0x55 => {
-                        // Stores V0 to VX (including VX) in memory starting at address I. The offset from I is increased by 1 for each value written, but I itself is left unmodified.[d]
-                    },
-                    0x65 => {
-                        // Fills V0 to VX (including VX) with values from memory starting at address I. The offset from I is increased by 1 for each value written, but I itself is left unmodified.[d]
-                    },
+                    0x55 => self.op_FX55(op.x),
+                    0x65 => self.op_FX65(op.x),
                     else => @panic("Unknown instruction!"),
                 }
             },
