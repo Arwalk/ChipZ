@@ -119,3 +119,17 @@ test "display simple" {
     expect_equal(emu.registers[0xF], 1);
 
 }
+
+test "BCD conversion" {
+    var emu = chipz.ChipZ.init(test_allocator);
+    var program = [_]u8{0xF0, 0x33};
+    emu.load_program(&program);
+    emu.index_register = 0x500;
+    emu.registers[0] = 0x9C;
+
+    emu.cycle();
+
+    expect_equal(@intCast(u8, 6), emu.memory[0x502]);
+    expect_equal(@intCast(u8, 5), emu.memory[0x501]);
+    expect_equal(@intCast(u8, 1), emu.memory[0x500]);
+}

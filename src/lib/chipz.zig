@@ -21,6 +21,26 @@ const default_font = [_]u8 {
     0xF0, 0x80, 0xF0, 0x80, 0x80  // F
 };
 
+const Key = enum(u8){
+    None = 0xFF,
+    Zero = 0,
+    One = 1,
+    Two = 2,
+    Three = 3,
+    Four = 4,
+    Five = 5,
+    Six = 6,
+    Seven = 7,
+    Height = 8,
+    Nine = 9,
+    A = 0xA,
+    B = 0xB,
+    C = 0xC,
+    D = 0xD,
+    E = 0xE,
+    F = 0xF,
+};
+
 pub const ChipZ = struct {
     memory: [4096]u8,
     display: [64][32]bool,
@@ -32,7 +52,8 @@ pub const ChipZ = struct {
     registers: [16]u8,
 
     flags : struct {
-        display_update: bool,  
+        display_update: bool,
+        current_key_pressed: Key,
     },
 
     configuration: struct {
@@ -51,7 +72,8 @@ pub const ChipZ = struct {
             .index_register = 0,
             .registers = [_]u8{0} ** 16,
             .flags = .{
-                .display_update = false
+                .display_update = false,
+                .current_key_pressed = Key.None,
             },
             .configuration = .{
                 .shift_operations_sets_ry_into_rx = true,
@@ -297,6 +319,80 @@ pub const ChipZ = struct {
         self.registers[x] = rand & value;
     }
 
+    /// EX9E will skip one instruction (increment PC by 2) if the key corresponding to the value in VX is pressed.
+    fn op_EX9E(self: *ChipZ, x: u4) void {
+        if(self.flags.current_key_pressed != Key.None and
+           @enumToInt(self.flags.current_key_pressed) == self.registers[x])
+        {
+            self.program_counter += 2;
+        }
+    }
+
+    /// EXA1 skips if the key corresponding to the value in VX is not pressed.
+    fn op_EXA1(self: *ChipZ, x: u4) void {
+        if(self.flags.current_key_pressed == Key.None or
+           @enumToInt(self.flags.current_key_pressed) != self.registers[x])
+        {
+            self.program_counter += 2;
+        }
+    }
+
+    /// FX07 sets VX to the current value of the delay timer
+    fn op_FX07(self: *ChipZ, x: u4) void {
+        self.registers[x] = self.timer_delay;
+    }
+
+    /// FX15 sets the delay timer to the value in VX
+    fn op_FX15(self: *ChipZ, x: u4) void {
+        self.timer_delay = self.registers[x];
+    }
+
+    /// FX18 sets the sound timer to the value in VX
+    fn op_FX18(self: *ChipZ, x: u4) void {
+        self.timer_sound = self.registers[x];
+    }
+
+    /// The index register I will get the value in VX added to it.
+    fn op_FX1E(self: *ChipZ, x: u4) void {
+        self.index_register = self.index_register + self.registers[x];
+        if(self.index_register > 0xFFF) {
+            self.registers[0xF] = 1;
+            self.index_register &= 0xFFF;
+        }
+    }
+
+    /// FX0A: Get key
+    /// This instruction “blocks”; it stops execution and waits for key input.
+    /// In other words, if you followed my advice earlier and increment PC after fetching each instruction, then it should be decremented again here unless a key is pressed.
+    /// Otherwise, PC should simply not be incremented.
+    /// If a key is pressed while this instruction is waiting for input, its hexadecimal value will be put in VX and execution continues.
+    fn op_FX0A(self: *ChipZ, x: u4) void {
+        if(self.flags.current_key_pressed == Key.None) {
+            self.program_counter -= 2;
+        }
+        else
+        {
+            self.registers[x] = @enumToInt(self.flags.current_key_pressed);
+        }
+    }
+
+    /// The index register I is set to the address of the hexadecimal character in VX
+    fn op_FX29(self: *ChipZ, x: u4) void {
+        const value = self.registers[x] & 0xF;
+        self.index_register = 0x50 + (value * 5);
+    }
+
+    /// BCD conversion
+    fn op_FX33(self: *ChipZ, x: u4) void {
+        var index : usize = 2;
+        var value = self.registers[x];
+        while(index >= 0) {
+            self.memory[self.index_register+index] = value % 10;
+            value /= 10;
+            if(index > 0) index -= 1 else break;
+        }
+    }
+
     const OpDetails = struct {
         first_nibble : u4,
         x: u4,
@@ -369,40 +465,20 @@ pub const ChipZ = struct {
             0xE => {
                 const last_byte : u8 = @intCast(u8, opcode & 0xFF);
                 switch (last_byte) {
-                    0x9E => {
-                        // Skips the next instruction if the key stored in VX is pressed. (Usually the next instruction is a jump to skip a code block)
-                    },
-                    0xA1 => {
-                        // Skips the next instruction if the key stored in VX isn't pressed. (Usually the next instruction is a jump to skip a code block)
-                    },
+                    0x9E => self.op_EX9E(op.x),
+                    0xA1 => self.op_EXA1(op.x),
                     else => @panic("Unknown instruction!"),
                 }
             },
             0xF => {
-                const last_byte : u8 = @intCast(u8, opcode & 0xFF);
-                switch (last_byte) {
-                    0x07 => {
-                        // Sets VX to the value of the delay timer.
-                    },
-                    0x0A => {
-                        // A key press is awaited, and then stored in VX. (Blocking Operation. All instruction halted until next key event)
-                    },
-                    0x15 => {
-                        // Sets the delay timer to VX.
-                    },
-                    0x18 => {
-                        // Sets the sound timer to VX.
-                    },
-                    0x1E => {
-                        // Adds VX to I. VF is not affected.[c]
-                    },
-                    0x29 => {
-                        // Sets I to the location of the sprite for the character in VX. Characters 0-F (in hexadecimal) are represented by a 4x5 font.
-                    },
-                    0x33 => {
-                        // Stores the binary-coded decimal representation of VX, with the most significant of three digits at the address in I, the middle digit at I plus 1, and the least significant digit at I plus 2.
-                        // (In other words, take the decimal representation of VX, place the hundreds digit in memory at location in I, the tens digit at location I+1, and the ones digit at location I+2.)
-                    },
+                switch (op.nn) {
+                    0x07 => self.op_FX07(op.x),
+                    0x0A => self.op_FX0A(op.x),
+                    0x15 => self.op_FX15(op.x),
+                    0x18 => self.op_FX18(op.x),
+                    0x1E => self.op_FX1E(op.x),
+                    0x29 => self.op_FX29(op.x),
+                    0x33 => self.op_FX33(op.x),
                     0x55 => {
                         // Stores V0 to VX (including VX) in memory starting at address I. The offset from I is increased by 1 for each value written, but I itself is left unmodified.[d]
                     },
