@@ -382,12 +382,10 @@ pub const ChipZ = struct {
 
     /// BCD conversion
     fn op_FX33(self: *ChipZ, x: u4) void {
-        var index : usize = 3;
         var value = self.registers[x];
-        while(index > 0) : ( index -= 1 ){
-            self.memory[self.index_register+index-1] = value % 10;
-            value = @divTrunc(value, 10);
-        }
+        self.memory[self.index_register] = @divFloor(value, 100);
+        self.memory[self.index_register + 1] = @divFloor(value, 10) % 10;
+        self.memory[self.index_register + 2] = value % 10;
     }
 
     /// store in memory
@@ -401,7 +399,9 @@ pub const ChipZ = struct {
     /// load from memory
     fn op_FX65(self: *ChipZ, x: u4) void {
         var index : usize = 0;
-        self.registers[index] = self.memory[self.index_register+index];
+        while (index <= x) : (index += 1) {
+            self.registers[index] = self.memory[self.index_register+index];
+        }
     }
 
     const OpDetails = struct {

@@ -9,6 +9,8 @@ pub fn main() anyerror!void {
     _ = c.SDL_Init(c.SDL_INIT_VIDEO);
     defer c.SDL_Quit();
 
+    var timer = c.SDL_GetTicks();
+
     var window = c.SDL_CreateWindow("chipz", c.SDL_WINDOWPOS_CENTERED, c.SDL_WINDOWPOS_CENTERED, 64, 32, 0);
     defer c.SDL_DestroyWindow(window);
 
@@ -44,6 +46,26 @@ pub fn main() anyerror!void {
     c.SDL_SetWindowSize(window, current_window_w, current_window_h);
 
     mainloop: while(true) {
+
+        // manage timer
+        var new_time = c.SDL_GetTicks();
+        defer timer = new_time;
+
+        var ticks : u32 = @floatToInt(u32, @round(@intToFloat(f32, (new_time - timer)) / 0.06));
+        if(ticks == 0) continue; // h-he's fast!
+
+        if(emu.timer_delay != 0) {
+            if(@subWithOverflow(u8, emu.timer_delay, @intCast(u8, ticks), &emu.timer_delay)) {
+                emu.timer_delay = 0;
+            }
+        }
+
+        if(emu.timer_sound != 0) {
+            if(@subWithOverflow(u8, emu.timer_sound, @intCast(u8, ticks), &emu.timer_sound)) {
+                emu.timer_sound = 0;
+            }
+        }
+
         var sdl_event: c.SDL_Event = undefined;
         var force_redraw: bool = false;
         defer force_redraw = false;
