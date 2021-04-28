@@ -21,7 +21,7 @@ const default_font = [_]u8 {
     0xF0, 0x80, 0xF0, 0x80, 0x80  // F
 };
 
-const Key = enum(u8){
+pub const Key = enum(u8){
     None = 0xFF,
     Zero = 0,
     One = 1,
@@ -31,7 +31,7 @@ const Key = enum(u8){
     Five = 5,
     Six = 6,
     Seven = 7,
-    Height = 8,
+    Eight = 8,
     Nine = 9,
     A = 0xA,
     B = 0xB,

@@ -1,6 +1,8 @@
 const std = @import("std");
 const chipz = @import("lib/chipz.zig");
 
+const Key = chipz.Key;
+
 const c = @cImport({
     @cInclude("SDL.h");
 });
@@ -49,10 +51,9 @@ pub fn main() anyerror!void {
 
         // manage timer
         var new_time = c.SDL_GetTicks();
-        defer timer = new_time;
-
-        var ticks : u32 = @floatToInt(u32, @round(@intToFloat(f32, (new_time - timer)) / 0.06));
-        if(ticks == 0) continue; // h-he's fast!
+       
+        var ticks : u32 = @floatToInt(u32, @round(@intToFloat(f32, (new_time - timer)) / 16));
+        if(ticks == 0) continue else defer timer = new_time; // h-he's fast!
 
         if(emu.timer_delay != 0) {
             if(@subWithOverflow(u8, emu.timer_delay, @intCast(u8, ticks), &emu.timer_delay)) {
@@ -85,10 +86,32 @@ pub fn main() anyerror!void {
                            rect.h = size_mult;
                            force_redraw = true;
                        },
+
+                       // inputs
+
+                       c.SDLK_1 => emu.flags.current_key_pressed = Key.One,
+                       c.SDLK_2 => emu.flags.current_key_pressed = Key.Two,
+                       c.SDLK_3 => emu.flags.current_key_pressed = Key.Three,
+                       c.SDLK_4 => emu.flags.current_key_pressed = Key.C,
+                       c.SDLK_q => emu.flags.current_key_pressed = Key.Four,
+                       c.SDLK_w => emu.flags.current_key_pressed = Key.Five,
+                       c.SDLK_e => emu.flags.current_key_pressed = Key.Six,
+                       c.SDLK_r => emu.flags.current_key_pressed = Key.D,
+                       c.SDLK_a => emu.flags.current_key_pressed = Key.Seven,
+                       c.SDLK_s => emu.flags.current_key_pressed = Key.Eight,
+                       c.SDLK_d => emu.flags.current_key_pressed = Key.Nine,
+                       c.SDLK_f => emu.flags.current_key_pressed = Key.E,
+                       c.SDLK_z => emu.flags.current_key_pressed = Key.A,
+                       c.SDLK_x => emu.flags.current_key_pressed = Key.Zero,
+                       c.SDLK_c => emu.flags.current_key_pressed = Key.B,
+                       c.SDLK_v => emu.flags.current_key_pressed = Key.F,
                       
                        else => {},
                     }
                 },
+
+                c.SDL_KEYUP => emu.flags.current_key_pressed = Key.None,
+
                 else => {},
             }
         }
