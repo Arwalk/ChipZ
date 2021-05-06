@@ -7,11 +7,60 @@ const c = @cImport({
     @cInclude("SDL.h");
 });
 
+const DISPLAY_EVENT : u32 = 0;
+
+fn manage_timer_callback(interval : u32, params : ?*c_void) callconv(.C) u32 {
+    if(params) |ptr| {
+        var emu = @ptrCast(*chipz.ChipZ, @alignCast(@alignOf(**chipz.ChipZ), ptr));
+
+        if(emu.timer_delay != 0) {
+            if(@subWithOverflow(u8, emu.timer_delay, @intCast(u8, 1), &emu.timer_delay)) {
+                emu.timer_delay = 0;
+            }
+        }
+
+        if(emu.timer_sound != 0) {
+            if(@subWithOverflow(u8, emu.timer_sound, @intCast(u8, 1), &emu.timer_sound)) {
+                emu.timer_sound = 0;
+            }
+        }
+    }
+
+    return interval;
+}
+
+fn manage_cycle_callback(interval : u32, params : ?*c_void) callconv(.C) u32 {
+    if(params) |ptr| {
+        var emu = @ptrCast(*chipz.ChipZ, @alignCast(@alignOf(**chipz.ChipZ), ptr));
+        emu.cycle();
+        if(emu.flags.display_update) {
+            publish_event_display();
+        }
+    }
+
+    return interval;
+}
+
+fn publish_event_display() void {
+    var userevent  = c.SDL_UserEvent{
+        .type = c.SDL_USEREVENT,
+        .code = DISPLAY_EVENT,
+        .data1 = null,
+        .data2 = null,
+        .timestamp = 0,
+        .windowID = 0,
+    };
+    
+    var event = c.SDL_Event{
+        .user = userevent,
+    };
+
+    _ = c.SDL_PushEvent(&event);
+}
+
 pub fn main() anyerror!void {
     _ = c.SDL_Init(c.SDL_INIT_VIDEO);
     defer c.SDL_Quit();
-
-    var timer = c.SDL_GetTicks();
 
     var window = c.SDL_CreateWindow("chipz", c.SDL_WINDOWPOS_CENTERED, c.SDL_WINDOWPOS_CENTERED, 64, 32, 0);
     defer c.SDL_DestroyWindow(window);
@@ -47,25 +96,10 @@ pub fn main() anyerror!void {
     var current_window_w : c_int = size_mult*64;
     c.SDL_SetWindowSize(window, current_window_w, current_window_h);
 
+    var timer_callback = c.SDL_AddTimer(16, manage_timer_callback, &emu);
+    var cycle_callback = c.SDL_AddTimer(1, manage_cycle_callback, &emu);
+
     mainloop: while(true) {
-
-        // manage timer
-        var new_time = c.SDL_GetTicks();
-       
-        var ticks : u32 = @floatToInt(u32, @round(@intToFloat(f32, (new_time - timer)) / 16));
-        if(ticks == 0) continue else defer timer = new_time; // h-he's fast!
-
-        if(emu.timer_delay != 0) {
-            if(@subWithOverflow(u8, emu.timer_delay, @intCast(u8, ticks), &emu.timer_delay)) {
-                emu.timer_delay = 0;
-            }
-        }
-
-        if(emu.timer_sound != 0) {
-            if(@subWithOverflow(u8, emu.timer_sound, @intCast(u8, ticks), &emu.timer_sound)) {
-                emu.timer_sound = 0;
-            }
-        }
 
         var sdl_event: c.SDL_Event = undefined;
         var force_redraw: bool = false;
@@ -84,7 +118,7 @@ pub fn main() anyerror!void {
                            c.SDL_RenderPresent(renderer);
                            rect.w = size_mult;
                            rect.h = size_mult;
-                           force_redraw = true;
+                           publish_event_display();
                        },
 
                        // inputs
@@ -111,34 +145,37 @@ pub fn main() anyerror!void {
                 },
 
                 c.SDL_KEYUP => emu.flags.current_key_pressed = Key.None,
-
+                c.SDL_USEREVENT => {
+                    switch(sdl_event.user.code){
+                        DISPLAY_EVENT => {
+                            x = 0;
+                            y = 0;
+                            
+                            _ = c.SDL_SetRenderDrawColor(renderer, 0xff, 0xff, 0xff, 0xff);
+                            _ = c.SDL_RenderClear(renderer);
+                            while(x < 32) : (x += 1) {
+                                y = 0;
+                                while (y < 64) : (y += 1) {
+                                    rect.x = size_mult * @intCast(c_int, y);
+                                    rect.y = size_mult * @intCast(c_int, x);
+                                    if(emu.display[y][x]) {
+                                        _ = c.SDL_SetRenderDrawColor(renderer, 0xff, 0xff, 0xff, 0xff);
+                                        _ = c.SDL_RenderFillRect(renderer, &rect);
+                                    } 
+                                    else
+                                    {
+                                        _ = c.SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xff);
+                                        _ = c.SDL_RenderFillRect(renderer, &rect);
+                                    }
+                                }
+                            }
+                            c.SDL_RenderPresent(renderer);
+                        },
+                        else => {},
+                    }
+                },
                 else => {},
             }
-        }
-        emu.cycle();
-        x = 0;
-        y = 0;
-
-        if(emu.flags.display_update or force_redraw) {
-            _ = c.SDL_SetRenderDrawColor(renderer, 0xff, 0xff, 0xff, 0xff);
-            _ = c.SDL_RenderClear(renderer);
-            while(x < 32) : (x += 1) {
-                y = 0;
-                while (y < 64) : (y += 1) {
-                    rect.x = size_mult * @intCast(c_int, y);
-                    rect.y = size_mult * @intCast(c_int, x);
-                    if(emu.display[y][x]) {
-                        _ = c.SDL_SetRenderDrawColor(renderer, 0xff, 0xff, 0xff, 0xff);
-                        _ = c.SDL_RenderFillRect(renderer, &rect);
-                    } 
-                    else
-                    {
-                        _ = c.SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xff);
-                        _ = c.SDL_RenderFillRect(renderer, &rect);
-                    }
-                }
-            }
-            c.SDL_RenderPresent(renderer);
         }
     }
 }
