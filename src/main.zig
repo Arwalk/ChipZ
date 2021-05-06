@@ -11,17 +11,11 @@ const DISPLAY_EVENT : u32 = 0;
 
 fn manage_timer_callback(interval : u32, params : ?*c_void) callconv(.C) u32 {
     if(params) |ptr| {
-        var emu = @ptrCast(*chipz.ChipZ, @alignCast(@alignOf(**chipz.ChipZ), ptr));
+        var timer = @ptrCast(*u8, ptr);
 
-        if(emu.timer_delay != 0) {
-            if(@subWithOverflow(u8, emu.timer_delay, @intCast(u8, 1), &emu.timer_delay)) {
-                emu.timer_delay = 0;
-            }
-        }
-
-        if(emu.timer_sound != 0) {
-            if(@subWithOverflow(u8, emu.timer_sound, @intCast(u8, 1), &emu.timer_sound)) {
-                emu.timer_sound = 0;
+        if(timer.* != 0) {
+            if(@subWithOverflow(u8, timer.*, @intCast(u8, 1), timer)) {
+                timer.* = 0;
             }
         }
     }
@@ -96,7 +90,8 @@ pub fn main() anyerror!void {
     var current_window_w : c_int = size_mult*64;
     c.SDL_SetWindowSize(window, current_window_w, current_window_h);
 
-    var timer_callback = c.SDL_AddTimer(16, manage_timer_callback, &emu);
+    var timer_callback = c.SDL_AddTimer(16, manage_timer_callback, &emu.timer_delay);
+    var sound_timer_callback = c.SDL_AddTimer(16, manage_timer_callback, &emu.timer_sound);
     var cycle_callback = c.SDL_AddTimer(1, manage_cycle_callback, &emu);
 
     mainloop: while(true) {
