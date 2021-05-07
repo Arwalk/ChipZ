@@ -1,0 +1,53 @@
+= ChipZ
+
+This is a simple Chip8 emulator built using the Zig programming language.
+
+This software was mostly meant to be for me to learn the basics of Zig, but it should be working for general Chip8 emulation.
+
+This emulator was built following https://tobiasvl.github.io/blog/write-a-chip-8-emulator/[This guide] for the Chip 8 emulation itself, and https://dev.to/fabioarnold/setup-zig-for-gamedev-2bmf[This other guide] for the SDL2 setup.
+
+Some demo files are in this repository. Here are the sources and description. All credits to the original creators.
+
+- https://github.com/corax89/chip8-test-rom[test_opcode.ch8] is a a general test for Chip 8 emulators
+- https://github.com/daniel5151/AC8E/tree/master/roms[bc_test.ch8] is another general test file for Chip 8 emulators
+- https://github.com/loktar00/chip8/tree/master/roms[IBM Logo.ch8] was found at this link (many interesting roms here!) and is just a display test
+- https://github.com/Skosulor/c8int[c8_test.c8] is an excellent testing rom too, with tests on timers.
+
+== Building and running
+
+=== Using the library
+
+`src/lib/chipz.zig` is a file containing everything needed to start chip 8 emulation. You just need to bring the GUI part to it. For your own use, add this file as a package to your `build.zig` file.
+
+=== Building the main program
+
+ChipZ relies on SDL2. To build the program, you need to download https://libsdl.org/release/SDL2-devel-2.0.14-VC.zip[SDL2], extract it to someplace, and create a file at the root of this repository called `sdl_path.txt`. In this file, put the full path of your SDL2 directory (i.e: `D:\MyWorkspace\SDL2-2.0.14\`).
+
+You will need to specify a target (i.e: `zig build -Dtarget=x86_64-windows-gnu`) to build.
+
+This program will only build on windows so far, but it shouldn't be hard to make it build on linux too, still using sdl.
+
+=== Running the tests
+
+There are a few tests. `zig build test` will run them.
+
+== Using the emulator
+
+To use the emulator, run "chipz.exe" and pass the rom path as a parameter (i.e `chipz.exe "my_path/to/my/rom.ch8`).
+
+The Chip 8 "COSMAC VIP" keyboard is mapped like this: 
+
+.keys
+[width="40%"]
+|=============
+|1	|2	|3	|4
+|Q	|W	|E	|R
+|A	|S	|D	|F
+|Z	|X	|C	|V
+|=============
+
+Keyboard scancodes are used so any non-qwerty keyboard should have the same mapping.
+
+Sound isn't managed and won't be implemented.
+
+Pressing the UP or DOWN key allows to resize the window.
