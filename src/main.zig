@@ -26,7 +26,10 @@ fn manage_timer_callback(interval : u32, params : ?*c_void) callconv(.C) u32 {
 fn manage_cycle_callback(interval : u32, params : ?*c_void) callconv(.C) u32 {
     if(params) |ptr| {
         var emu = @ptrCast(*chipz.ChipZ, @alignCast(@alignOf(**chipz.ChipZ), ptr));
-        emu.cycle();
+        
+        if(emu.cycle()) {} else |err| {
+            @panic("Faulting instruction");
+        }
         if(emu.flags.display_update) {
             publish_event_display();
         }

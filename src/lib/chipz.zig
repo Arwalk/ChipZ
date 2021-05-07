@@ -2,6 +2,7 @@ const std = @import("std");
 const random = std.crypto.random;
 const Stack = std.ArrayList(u16);
 
+/// This is the default font found on Tobias' guide.
 const default_font = [_]u8 {
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
     0x20, 0x60, 0x20, 0x20, 0x70, // 1
@@ -21,6 +22,7 @@ const default_font = [_]u8 {
     0xF0, 0x80, 0xF0, 0x80, 0x80  // F
 };
 
+/// An enum for the possible key presses.
 pub const Key = enum(u8){
     None = 0xFF,
     Zero = 0,
@@ -41,6 +43,12 @@ pub const Key = enum(u8){
     F = 0xF,
 };
 
+pub const ExecuteError = error {
+    UnknownInstruction,
+    Unsupported0x0NNN
+};
+
+/// The main structure for Chip8 emulation.
 pub const ChipZ = struct {
     memory: [4096]u8,
     display: [64][32]bool,
@@ -61,6 +69,9 @@ pub const ChipZ = struct {
         bnnn_is_bxnn: bool,
     },
 
+    /// Inits a ChipZ structure with sensible defaults.
+    /// Namely, it inits the memory to and display to 0, prepares the stack
+    /// It sets then the default font using set_font.
     pub fn init(allocator: *std.mem.Allocator) ChipZ {
         var chip = ChipZ{
             .memory = [1]u8{0} ** 4096,
@@ -86,6 +97,7 @@ pub const ChipZ = struct {
         return chip;
     }
 
+    /// Loads a program in memory, starting at address 0x200.
     pub fn load_program(self: *ChipZ, program: []u8) void {
         for(program) |byte, index| {
             self.memory[index+0x200] = byte;
@@ -93,45 +105,61 @@ pub const ChipZ = struct {
         self.program_counter = 0x200;
     }
 
+    /// Cleanups the structure
     pub fn deinit(self: *ChipZ) void {
         self.stack.deinit();
     }
 
+    /// quick tool for operation parameter type address.
     fn get_address(opcode: u16) u12 {
         return @intCast(u12 ,opcode & 0xFFF);
     }
 
+    /// quick tool for operation parameter type 8 bit constant as the last byte.
     fn get_8bitconstant(opcode: u16) u8 {
         return @intCast(u8 ,opcode & 0xFF);
     }
 
+    /// quick tool for operation parameter type 4 bit constant as the last nibble.
     fn get_4bitconstant(opcode: u16) u4 {
         return @intCast(u4 ,opcode & 0xF);
     }
 
+    /// quick tool for operation parameter type "x", the second nibble.
     fn get_x(opcode: u16) u4 {
         return @intCast(u4 ,(opcode & 0x0F00) >> 8);
     }
 
+    /// quick tool for operation parameter type "y", the third nibble.
     fn get_y(opcode: u16) u4 {
         return @intCast(u4 ,(opcode & 0x00F0) >> 4);
     }
 
+    /// sets the spedified font at index 0x50 
     pub fn set_font(self: *ChipZ, font: [16*5]u8) void {
         for (font) |byte, index| {
             self.memory[index+0x50] = byte;
         }
     }
 
-    pub fn cycle(self: *ChipZ) void {
+    /// Cycles and executes the next instruction.
+    /// This is what makes the emulation run.
+    /// If a display operation has been executed, the flag "display_update" will be set.
+    /// This allows updating the display only when necessary.
+    pub fn cycle(self: *ChipZ) !void {
         self.flags.display_update = false;
-        self.decode_and_execute(self.fetch());
+        try self.decode_and_execute(self.fetch());
     }
 
+    /// Fetches the next instruction and moves the program counter by 2.
+    /// The use of defer is absolutely unecessary here, except if, like me, you enjoy having the return value at the end.
     fn fetch(self: *ChipZ) u16 {
         defer self.program_counter += 2;
         return (@intCast(u16, self.memory[self.program_counter]) << 8) + self.memory[self.program_counter+1];
     }
+
+    //! All functions starting with op_ are individual operations.
+    //! Some comments are directly from Tobias' guide.
 
     /// Clears the screen.
     fn op_00E0(self: *ChipZ) void {
@@ -168,8 +196,10 @@ pub const ChipZ = struct {
     fn op_DXYN(self: *ChipZ, r_col: u8, r_lin: u8, base_height: u4) void {
         const col = self.registers[r_col];
         const lin = self.registers[r_lin];
+
         self.registers[0xF] = 0;
         self.flags.display_update = true;
+
         for (self.memory[self.index_register..self.index_register+base_height]) |sprite_line, index_sprite| {
             var x: u4 = 0;
             while (x < 8) : ( x += 1) {
@@ -404,8 +434,9 @@ pub const ChipZ = struct {
         }
     }
 
+    /// Simple structure to decode a 2-byte instruction into potential parameters.
     const OpDetails = struct {
-        first_nibble : u4,
+        opcode : u4,
         x: u4,
         y: u4,
         n: u4,
@@ -414,7 +445,7 @@ pub const ChipZ = struct {
 
         fn get(opcode: u16) OpDetails {
             return OpDetails {
-                .first_nibble = @intCast(u4, (opcode & 0xF000) >> 12),
+                .opcode = @intCast(u4, (opcode & 0xF000) >> 12),
                 .x = get_x(opcode),
                 .y = get_y(opcode),
                 .n = get_4bitconstant(opcode),
@@ -424,15 +455,17 @@ pub const ChipZ = struct {
         }
     };
 
-    fn decode_and_execute(self: *ChipZ, opcode: u16) void {
+    /// Decodes the instruction, finds the appropriate function and execute it.
+    fn decode_and_execute(self: *ChipZ, opcode: u16) !void {
+        errdefer std.log.err("Faulting instruction {x} at program counter value {x}", .{opcode, self.program_counter});
         const op = OpDetails.get(opcode);
-        switch(op.first_nibble) {
+        switch(op.opcode) {
             0x0 => {
                 switch(opcode) {
                     0x00E0 => self.op_00E0(),
                     0x00EE => self.op_00EE(),
                     else => {
-                        @panic("0x0NNN requires knowledge of the machine running the code.");// Calls machine code routine (RCA 1802 for COSMAC VIP) at address NNN. Not necessary for most ROMs.
+                        return ExecuteError.Unsupported0x0NNN; // Calls machine code routine (RCA 1802 for COSMAC VIP) at address NNN. Not necessary for most ROMs.
                     }
                 }
             },
@@ -444,7 +477,7 @@ pub const ChipZ = struct {
                 if((opcode & 0xF) == 0){
                     self.op_5XY0(op.x, op.y);
                 }
-                else @panic("Unknown instruction!");
+                else return ExecuteError.UnknownInstruction;
             },
             0x6 => self.op_6XNN(op.x, op.nn),
             0x7 => self.op_7XNN(op.x, op.nn),
@@ -460,14 +493,14 @@ pub const ChipZ = struct {
                     0x6 => self.op_8XY6(op.x, op.y),
                     0x7 => self.op_8XY7(op.x, op.y),
                     0xE => self.op_8XYE(op.x, op.y),
-                    else => @panic("Unknown instruction!"),
+                    else => return ExecuteError.UnknownInstruction,
                 }
             },
             0x9 => {
                 if((opcode & 0xF) == 0){
                     self.op_9XY0(op.x, op.y);
                 }
-                else @panic("Unknown instruction!");
+                else return ExecuteError.UnknownInstruction;
             },
             0xA => self.op_ANNN(op.address),
             0xB => self.op_BNNN(opcode),
@@ -478,7 +511,7 @@ pub const ChipZ = struct {
                 switch (last_byte) {
                     0x9E => self.op_EX9E(op.x),
                     0xA1 => self.op_EXA1(op.x),
-                    else => @panic("Unknown instruction!"),
+                    else => return ExecuteError.UnknownInstruction,
                 }
             },
             0xF => {
@@ -492,7 +525,7 @@ pub const ChipZ = struct {
                     0x33 => self.op_FX33(op.x),
                     0x55 => self.op_FX55(op.x),
                     0x65 => self.op_FX65(op.x),
-                    else => @panic("Unknown instruction!"),
+                    else => return ExecuteError.UnknownInstruction,
                 }
             },
         }
