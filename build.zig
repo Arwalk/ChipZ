@@ -37,7 +37,6 @@ pub fn build(b: *std.build.Builder) void {
         run_cmd.addArgs(args);
     }
 
-
     // tests
     const test_step = b.step("test", "test everything");
 
