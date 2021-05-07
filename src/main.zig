@@ -1,5 +1,5 @@
 const std = @import("std");
-const chipz = @import("lib/chipz.zig");
+const chipz = @import("chipz");
 
 const Key = chipz.Key;
 
