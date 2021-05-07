@@ -24,7 +24,6 @@ const default_font = [_]u8 {
 
 /// An enum for the possible key presses.
 pub const Key = enum(u8){
-    None = 0xFF,
     Zero = 0,
     One = 1,
     Two = 2,
@@ -61,7 +60,7 @@ pub const ChipZ = struct {
 
     flags : struct {
         display_update: bool,
-        current_key_pressed: Key,
+        current_key_pressed: ?Key,
     },
 
     configuration: struct {
@@ -84,7 +83,7 @@ pub const ChipZ = struct {
             .registers = [_]u8{0} ** 16,
             .flags = .{
                 .display_update = false,
-                .current_key_pressed = Key.None,
+                .current_key_pressed = null,
             },
             .configuration = .{
                 .shift_operations_sets_ry_into_rx = false,
@@ -349,17 +348,23 @@ pub const ChipZ = struct {
 
     /// EX9E will skip one instruction (increment PC by 2) if the key corresponding to the value in VX is pressed.
     fn op_EX9E(self: *ChipZ, x: u4) void {
-        if(self.flags.current_key_pressed != Key.None and
-           @enumToInt(self.flags.current_key_pressed) == self.registers[x])
-        {
-            self.program_counter += 2;
+        if(self.flags.current_key_pressed) |key| {
+            if(@enumToInt(key) == self.registers[x])
+            {
+                self.program_counter += 2;
+            }
         }
     }
 
     /// EXA1 skips if the key corresponding to the value in VX is not pressed.
     fn op_EXA1(self: *ChipZ, x: u4) void {
-        if(self.flags.current_key_pressed == Key.None or
-           @enumToInt(self.flags.current_key_pressed) != self.registers[x])
+        if(self.flags.current_key_pressed) |key| {
+            if(@enumToInt(key) != self.registers[x])
+            {
+                self.program_counter += 2;
+            }
+        }
+        else
         {
             self.program_counter += 2;
         }
@@ -395,12 +400,12 @@ pub const ChipZ = struct {
     /// Otherwise, PC should simply not be incremented.
     /// If a key is pressed while this instruction is waiting for input, its hexadecimal value will be put in VX and execution continues.
     fn op_FX0A(self: *ChipZ, x: u4) void {
-        if(self.flags.current_key_pressed == Key.None) {
-            self.program_counter -= 2;
+        if(self.flags.current_key_pressed) |key| {
+            self.registers[x] = @enumToInt(key);
         }
         else
         {
-            self.registers[x] = @enumToInt(self.flags.current_key_pressed);
+            self.program_counter -= 2;
         }
     }
 

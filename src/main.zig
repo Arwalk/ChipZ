@@ -108,8 +108,9 @@ pub fn main() anyerror!void {
                 c.SDL_KEYDOWN => {
                     switch(sdl_event.key.keysym.sym){
 
-                       c.SDLK_UP => {
-                           size_mult += 1;
+                       c.SDLK_UP, c.SDLK_DOWN => {
+                           const mult : c_int = if(sdl_event.key.keysym.sym == c.SDLK_UP) 1 else -1;
+                           size_mult += mult;
                            current_window_h = size_mult*32;
                            current_window_w = size_mult*64;
                            c.SDL_SetWindowSize(window, current_window_w, current_window_h);
@@ -142,7 +143,7 @@ pub fn main() anyerror!void {
                     }
                 },
 
-                c.SDL_KEYUP => emu.flags.current_key_pressed = Key.None,
+                c.SDL_KEYUP => emu.flags.current_key_pressed = null,
                 c.SDL_USEREVENT => {
                     switch(sdl_event.user.code){
                         DISPLAY_EVENT => {
