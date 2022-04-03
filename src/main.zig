@@ -9,7 +9,7 @@ const c = @cImport({
 
 const DISPLAY_EVENT : u32 = 0;
 
-fn manage_timer_callback(interval : u32, params : ?*c_void) callconv(.C) u32 {
+fn manage_timer_callback(interval : u32, params : ?*anyopaque) callconv(.C) u32 {
     if(params) |ptr| {
         var timer = @ptrCast(*u8, ptr);
 
@@ -23,11 +23,11 @@ fn manage_timer_callback(interval : u32, params : ?*c_void) callconv(.C) u32 {
     return interval;
 }
 
-fn manage_cycle_callback(interval : u32, params : ?*c_void) callconv(.C) u32 {
+fn manage_cycle_callback(interval : u32, params : ?*anyopaque) callconv(.C) u32 {
     if(params) |ptr| {
         var emu = @ptrCast(*chipz.ChipZ, @alignCast(@alignOf(**chipz.ChipZ), ptr));
         
-        if(emu.cycle()) {} else |err| {
+        if(emu.cycle()) {} else |_| {
             @panic("Faulting instruction");
         }
         if(emu.flags.display_update) {
@@ -65,10 +65,8 @@ pub fn main() anyerror!void {
     var renderer = c.SDL_CreateRenderer(window, 0, c.SDL_RENDERER_PRESENTVSYNC);
     defer c.SDL_DestroyRenderer(renderer);
 
-    var frame: usize = 0;
-
     var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
-    const gpa = &general_purpose_allocator.allocator;
+    const gpa = general_purpose_allocator.allocator();
     const args = try std.process.argsAlloc(gpa);
     defer std.process.argsFree(gpa, args);
 
@@ -93,9 +91,9 @@ pub fn main() anyerror!void {
     var current_window_w : c_int = size_mult*64;
     c.SDL_SetWindowSize(window, current_window_w, current_window_h);
 
-    var timer_callback = c.SDL_AddTimer(16, manage_timer_callback, &emu.timer_delay);
-    var sound_timer_callback = c.SDL_AddTimer(16, manage_timer_callback, &emu.timer_sound);
-    var cycle_callback = c.SDL_AddTimer(1, manage_cycle_callback, &emu);
+    _ = c.SDL_AddTimer(16, manage_timer_callback, &emu.timer_delay);
+    _ = c.SDL_AddTimer(16, manage_timer_callback, &emu.timer_sound);
+    _ = c.SDL_AddTimer(1, manage_cycle_callback, &emu);
 
     mainloop: while(true) {
 

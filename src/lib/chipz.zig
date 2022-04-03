@@ -71,7 +71,7 @@ pub const ChipZ = struct {
     /// Inits a ChipZ structure with sensible defaults.
     /// Namely, it inits the memory to and display to 0, prepares the stack
     /// It sets then the default font using set_font.
-    pub fn init(allocator: *std.mem.Allocator) ChipZ {
+    pub fn init(allocator: std.mem.Allocator) ChipZ {
         var chip = ChipZ{
             .memory = [1]u8{0} ** 4096,
             .display = [_][32]bool{[_]bool{false} ** 32} ** 64,
@@ -157,8 +157,8 @@ pub const ChipZ = struct {
         return (@intCast(u16, self.memory[self.program_counter]) << 8) + self.memory[self.program_counter+1];
     }
 
-    //! All functions starting with op_ are individual operations.
-    //! Some comments are directly from Tobias' guide.
+    // All functions starting with op_ are individual operations.
+    // Some comments are directly from Tobias' guide.
 
     /// Clears the screen.
     fn op_00E0(self: *ChipZ) void {
@@ -222,7 +222,7 @@ pub const ChipZ = struct {
 
     /// start subroutine
     fn op_2NNN(self: *ChipZ, address: u12) void {
-        self.stack.append(self.program_counter) catch |err| @panic("Error on pushing on stack");
+        self.stack.append(self.program_counter) catch @panic("Error on pushing on stack");
         self.program_counter = address;
     }
 
@@ -289,7 +289,7 @@ pub const ChipZ = struct {
     /// If the subtrahend is larger, and we “underflow” the result, VF is set to 0.
     /// Another way of thinking of it is that VF is set to 1 before the subtraction, and then the subtraction either borrows from VF (setting it to 0) or not.
     fn op_8XY5(self: *ChipZ, x: u4, y: u4) void {
-        const overflow = @subWithOverflow(u8, self.registers[x], self.registers[y], &self.registers[x]);
+        _ = @subWithOverflow(u8, self.registers[x], self.registers[y], &self.registers[x]);
         self.registers[0xF] = if(self.registers[x] > self.registers[y])  0 else 1;
     }
 
@@ -299,7 +299,7 @@ pub const ChipZ = struct {
     /// If the subtrahend is larger, and we “underflow” the result, VF is set to 0.
     /// Another way of thinking of it is that VF is set to 1 before the subtraction, and then the subtraction either borrows from VF (setting it to 0) or not.
     fn op_8XY7(self: *ChipZ, x: u4, y: u4) void {
-        const overflow = @subWithOverflow(u8, self.registers[y], self.registers[x], &self.registers[x]);
+        _ = @subWithOverflow(u8, self.registers[y], self.registers[x], &self.registers[x]);
         self.registers[0xF] = if (self.registers[y] > self.registers[x]) 1 else 0;
     }
 
