@@ -109,31 +109,6 @@ pub const ChipZ = struct {
         self.stack.deinit();
     }
 
-    /// quick tool for operation parameter type address.
-    fn get_address(opcode: u16) u12 {
-        return @intCast(u12 ,opcode & 0xFFF);
-    }
-
-    /// quick tool for operation parameter type 8 bit constant as the last byte.
-    fn get_8bitconstant(opcode: u16) u8 {
-        return @intCast(u8 ,opcode & 0xFF);
-    }
-
-    /// quick tool for operation parameter type 4 bit constant as the last nibble.
-    fn get_4bitconstant(opcode: u16) u4 {
-        return @intCast(u4 ,opcode & 0xF);
-    }
-
-    /// quick tool for operation parameter type "x", the second nibble.
-    fn get_x(opcode: u16) u4 {
-        return @intCast(u4 ,(opcode & 0x0F00) >> 8);
-    }
-
-    /// quick tool for operation parameter type "y", the third nibble.
-    fn get_y(opcode: u16) u4 {
-        return @intCast(u4 ,(opcode & 0x00F0) >> 4);
-    }
-
     /// sets the spedified font at index 0x50 
     pub fn set_font(self: *ChipZ, font: [16*5]u8) void {
         for (font) |byte, index| {
@@ -326,16 +301,16 @@ pub const ChipZ = struct {
     }
 
     /// BNNN: Jump with offset
-    fn op_BNNN(self: *ChipZ, opcode: u16) void {
+    fn op_BNNN(self: *ChipZ, op: OpDetails) void {
         if(self.configuration.bnnn_is_bxnn){
-            const address = get_8bitconstant(opcode);
-            const x = get_x(opcode);
+            const address = op.get_8bitconstant();
+            const x = op.get_x();
 
             self.program_counter = address + self.registers[x];
         }
         else
         {
-            const address = get_address(opcode);
+            const address = op.get_address();
             self.program_counter = address + self.registers[0];
         }
     }
@@ -442,21 +417,38 @@ pub const ChipZ = struct {
     /// Simple structure to decode a 2-byte instruction into potential parameters.
     const OpDetails = struct {
         opcode : u4,
-        x: u4,
-        y: u4,
-        n: u4,
-        nn: u8,
-        address: u12,
+        raw : u16,
 
-        fn get(opcode: u16) OpDetails {
+        fn get(operation: u16) OpDetails {
             return OpDetails {
-                .opcode = @intCast(u4, (opcode & 0xF000) >> 12),
-                .x = get_x(opcode),
-                .y = get_y(opcode),
-                .n = get_4bitconstant(opcode),
-                .nn = get_8bitconstant(opcode),
-                .address = get_address(opcode)
+                .opcode = @intCast(u4, (operation & 0xF000) >> 12),
+                .raw = operation
             };
+        }
+
+        /// quick tool for operation parameter type address.
+        fn get_address(self: OpDetails) u12 {
+            return @intCast(u12 , self.raw & 0xFFF);
+        }
+
+        /// quick tool for operation parameter type 8 bit constant as the last byte.
+        fn get_8bitconstant(self: OpDetails) u8 {
+            return @intCast(u8 , self.raw & 0xFF);
+        }
+
+        /// quick tool for operation parameter type 4 bit constant as the last nibble.
+        fn get_4bitconstant(self: OpDetails) u4 {
+            return @intCast(u4 , self.raw & 0xF);
+        }
+
+        /// quick tool for operation parameter type "x", the second nibble.
+        fn get_x(self: OpDetails) u4 {
+            return @intCast(u4 ,(self.raw & 0x0F00) >> 8);
+        }
+
+        /// quick tool for operation parameter type "y", the third nibble.
+        fn get_y(self: OpDetails) u4 {
+            return @intCast(u4 ,(self.raw & 0x00F0) >> 4);
         }
     };
 
@@ -474,62 +466,62 @@ pub const ChipZ = struct {
                     }
                 }
             },
-            0x1 => self.op_1NNN(op.address),
-            0x2 => self.op_2NNN(op.address),
-            0x3 => self.op_3XNN(op.x, op.nn),
-            0x4 => self.op_4XNN(op.x, op.nn),
+            0x1 => self.op_1NNN(op.get_address()),
+            0x2 => self.op_2NNN(op.get_address()),
+            0x3 => self.op_3XNN(op.get_x(), op.get_8bitconstant()),
+            0x4 => self.op_4XNN(op.get_x(), op.get_8bitconstant()),
             0x5 => {
                 if((opcode & 0xF) == 0){
-                    self.op_5XY0(op.x, op.y);
+                    self.op_5XY0(op.get_x(), op.get_y());
                 }
                 else return ExecuteError.UnknownInstruction;
             },
-            0x6 => self.op_6XNN(op.x, op.nn),
-            0x7 => self.op_7XNN(op.x, op.nn),
+            0x6 => self.op_6XNN(op.get_x(), op.get_8bitconstant()),
+            0x7 => self.op_7XNN(op.get_x(), op.get_8bitconstant()),
             0x8 => {
                 const last_nibble : u4 = @intCast(u4, opcode & 0xF);
                 switch (last_nibble) {
-                    0x0 => self.op_8XY0(op.x, op.y),
-                    0x1 => self.op_8XY1(op.x, op.y),
-                    0x2 => self.op_8XY2(op.x, op.y),
-                    0x3 => self.op_8XY3(op.x, op.y),
-                    0x4 => self.op_8XY4(op.x, op.y),
-                    0x5 => self.op_8XY5(op.x, op.y),
-                    0x6 => self.op_8XY6(op.x, op.y),
-                    0x7 => self.op_8XY7(op.x, op.y),
-                    0xE => self.op_8XYE(op.x, op.y),
+                    0x0 => self.op_8XY0(op.get_x(), op.get_y()),
+                    0x1 => self.op_8XY1(op.get_x(), op.get_y()),
+                    0x2 => self.op_8XY2(op.get_x(), op.get_y()),
+                    0x3 => self.op_8XY3(op.get_x(), op.get_y()),
+                    0x4 => self.op_8XY4(op.get_x(), op.get_y()),
+                    0x5 => self.op_8XY5(op.get_x(), op.get_y()),
+                    0x6 => self.op_8XY6(op.get_x(), op.get_y()),
+                    0x7 => self.op_8XY7(op.get_x(), op.get_y()),
+                    0xE => self.op_8XYE(op.get_x(), op.get_y()),
                     else => return ExecuteError.UnknownInstruction,
                 }
             },
             0x9 => {
                 if((opcode & 0xF) == 0){
-                    self.op_9XY0(op.x, op.y);
+                    self.op_9XY0(op.get_x(), op.get_y());
                 }
                 else return ExecuteError.UnknownInstruction;
             },
-            0xA => self.op_ANNN(op.address),
-            0xB => self.op_BNNN(opcode),
-            0xC => self.op_CXNN(op.x, op.nn),
-            0xD => self.op_DXYN(op.x, op.y, op.n),
+            0xA => self.op_ANNN(op.get_address()),
+            0xB => self.op_BNNN(op),
+            0xC => self.op_CXNN(op.get_x(), op.get_8bitconstant()),
+            0xD => self.op_DXYN(op.get_x(), op.get_y(), op.get_4bitconstant()),
             0xE => {
                 const last_byte : u8 = @intCast(u8, opcode & 0xFF);
                 switch (last_byte) {
-                    0x9E => self.op_EX9E(op.x),
-                    0xA1 => self.op_EXA1(op.x),
+                    0x9E => self.op_EX9E(op.get_x()),
+                    0xA1 => self.op_EXA1(op.get_x()),
                     else => return ExecuteError.UnknownInstruction,
                 }
             },
             0xF => {
-                switch (op.nn) {
-                    0x07 => self.op_FX07(op.x),
-                    0x0A => self.op_FX0A(op.x),
-                    0x15 => self.op_FX15(op.x),
-                    0x18 => self.op_FX18(op.x),
-                    0x1E => self.op_FX1E(op.x),
-                    0x29 => self.op_FX29(op.x),
-                    0x33 => self.op_FX33(op.x),
-                    0x55 => self.op_FX55(op.x),
-                    0x65 => self.op_FX65(op.x),
+                switch (op.get_8bitconstant()) {
+                    0x07 => self.op_FX07(op.get_x()),
+                    0x0A => self.op_FX0A(op.get_x()),
+                    0x15 => self.op_FX15(op.get_x()),
+                    0x18 => self.op_FX18(op.get_x()),
+                    0x1E => self.op_FX1E(op.get_x()),
+                    0x29 => self.op_FX29(op.get_x()),
+                    0x33 => self.op_FX33(op.get_x()),
+                    0x55 => self.op_FX55(op.get_x()),
+                    0x65 => self.op_FX65(op.get_x()),
                     else => return ExecuteError.UnknownInstruction,
                 }
             },
