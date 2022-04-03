@@ -10,17 +10,17 @@ test "clear screen" {
 
     emu.memory[1] = 0xE0;
     emu.display[4][4] = true;
-    emu.cycle();
+    try emu.cycle();
 
-    expect_equal(emu.display[4][4], false);
+    try expect_equal(emu.display[4][4], false);
 }
 
 test "jump" {
     var emu = chipz.ChipZ.init(test_allocator);
 
     emu.memory[0] = 0x11;
-    emu.cycle();
-    expect_equal(emu.program_counter, 0x100);
+    try emu.cycle();
+    try expect_equal(emu.program_counter, 0x100);
 }
 
 test "set vx nn and add x nn" {
@@ -30,11 +30,11 @@ test "set vx nn and add x nn" {
     emu.memory[2] = 0x7A;
     emu.memory[3] = 0x01;
 
-    emu.cycle();
-    expect_equal(emu.registers[0xA], 0x12);
+    try emu.cycle();
+    try expect_equal(emu.registers[0xA], 0x12);
 
-    emu.cycle();
-    expect_equal(emu.registers[0xA], 0x13);
+    try emu.cycle();
+    try expect_equal(emu.registers[0xA], 0x13);
 }
 
 test "set I" {
@@ -42,8 +42,8 @@ test "set I" {
     emu.memory[0] = 0xA6;
     emu.memory[1] = 0x66;
 
-    emu.cycle();
-    expect_equal(emu.index_register, 0x666);
+    try emu.cycle();
+    try expect_equal(emu.index_register, 0x666);
 }
 
 test "display simple" {
@@ -62,62 +62,62 @@ test "display simple" {
     emu.memory[0x202] = 0xFF;
     emu.index_register = 0x200;
 
-    emu.cycle();
+    try emu.cycle();
     // 00111100
     // 11000011
     // 11111111
-    expect_equal(emu.display[0][0], false);
-    expect_equal(emu.display[1][0], false);
-    expect_equal(emu.display[2][0], true);
-    expect_equal(emu.display[3][0], true);
-    expect_equal(emu.display[4][0], true);
-    expect_equal(emu.display[5][0], true);
-    expect_equal(emu.display[6][0], false);
-    expect_equal(emu.display[7][0], false);
-    expect_equal(emu.display[0][1], true);
+    try expect_equal(emu.display[0][0], false);
+    try expect_equal(emu.display[1][0], false);
+    try expect_equal(emu.display[2][0], true);
+    try expect_equal(emu.display[3][0], true);
+    try expect_equal(emu.display[4][0], true);
+    try expect_equal(emu.display[5][0], true);
+    try expect_equal(emu.display[6][0], false);
+    try expect_equal(emu.display[7][0], false);
+    try expect_equal(emu.display[0][1], true);
 
-    expect_equal(emu.display[1][1], true);
-    expect_equal(emu.display[2][1], false);
-    expect_equal(emu.display[3][1], false);
-    expect_equal(emu.display[4][1], false);
-    expect_equal(emu.display[5][1], false);
-    expect_equal(emu.display[6][1], true);
-    expect_equal(emu.display[7][1], true);
+    try expect_equal(emu.display[1][1], true);
+    try expect_equal(emu.display[2][1], false);
+    try expect_equal(emu.display[3][1], false);
+    try expect_equal(emu.display[4][1], false);
+    try expect_equal(emu.display[5][1], false);
+    try expect_equal(emu.display[6][1], true);
+    try expect_equal(emu.display[7][1], true);
 
-    expect_equal(emu.display[1][2], true);
-    expect_equal(emu.display[2][2], true);
-    expect_equal(emu.display[3][2], true);
-    expect_equal(emu.display[4][2], true);
-    expect_equal(emu.display[5][2], true);
-    expect_equal(emu.display[6][2], true);
-    expect_equal(emu.display[7][2], true);
-    expect_equal(emu.registers[0xF], 0);
+    try expect_equal(emu.display[1][2], true);
+    try expect_equal(emu.display[2][2], true);
+    try expect_equal(emu.display[3][2], true);
+    try expect_equal(emu.display[4][2], true);
+    try expect_equal(emu.display[5][2], true);
+    try expect_equal(emu.display[6][2], true);
+    try expect_equal(emu.display[7][2], true);
+    try expect_equal(emu.registers[0xF], 0);
 
-    emu.cycle();
-    expect_equal(emu.display[0][0], false);
-    expect_equal(emu.display[1][0], false);
-    expect_equal(emu.display[2][0], false);
-    expect_equal(emu.display[3][0], false);
-    expect_equal(emu.display[4][0], false);
-    expect_equal(emu.display[5][0], false);
-    expect_equal(emu.display[6][0], false);
-    expect_equal(emu.display[7][0], false);
-    expect_equal(emu.display[0][1], false);
-    expect_equal(emu.display[1][1], false);
-    expect_equal(emu.display[2][1], false);
-    expect_equal(emu.display[3][1], false);
-    expect_equal(emu.display[4][1], false);
-    expect_equal(emu.display[5][1], false);
-    expect_equal(emu.display[6][1], false);
-    expect_equal(emu.display[7][1], false);
-    expect_equal(emu.display[1][2], false);
-    expect_equal(emu.display[2][2], false);
-    expect_equal(emu.display[3][2], false);
-    expect_equal(emu.display[4][2], false);
-    expect_equal(emu.display[5][2], false);
-    expect_equal(emu.display[6][2], false);
-    expect_equal(emu.display[7][2], false);
-    expect_equal(emu.registers[0xF], 1);
+    try emu.cycle();
+    try expect_equal(emu.display[0][0], false);
+    try expect_equal(emu.display[1][0], false);
+    try expect_equal(emu.display[2][0], false);
+    try expect_equal(emu.display[3][0], false);
+    try expect_equal(emu.display[4][0], false);
+    try expect_equal(emu.display[5][0], false);
+    try expect_equal(emu.display[6][0], false);
+    try expect_equal(emu.display[7][0], false);
+    try expect_equal(emu.display[0][1], false);
+    try expect_equal(emu.display[1][1], false);
+    try expect_equal(emu.display[2][1], false);
+    try expect_equal(emu.display[3][1], false);
+    try expect_equal(emu.display[4][1], false);
+    try expect_equal(emu.display[5][1], false);
+    try expect_equal(emu.display[6][1], false);
+    try expect_equal(emu.display[7][1], false);
+    try expect_equal(emu.display[1][2], false);
+    try expect_equal(emu.display[2][2], false);
+    try expect_equal(emu.display[3][2], false);
+    try expect_equal(emu.display[4][2], false);
+    try expect_equal(emu.display[5][2], false);
+    try expect_equal(emu.display[6][2], false);
+    try expect_equal(emu.display[7][2], false);
+    try expect_equal(emu.registers[0xF], 1);
 
 }
 
@@ -128,11 +128,11 @@ test "BCD conversion" {
     emu.index_register = 0x500;
     emu.registers[0] = 0x9C;
 
-    emu.cycle();
+    try emu.cycle();
 
-    expect_equal(@intCast(u8, 6), emu.memory[0x502]);
-    expect_equal(@intCast(u8, 5), emu.memory[0x501]);
-    expect_equal(@intCast(u8, 1), emu.memory[0x500]);
+    try expect_equal(@intCast(u8, 6), emu.memory[0x502]);
+    try expect_equal(@intCast(u8, 5), emu.memory[0x501]);
+    try expect_equal(@intCast(u8, 1), emu.memory[0x500]);
 }
 
 test "bestcoder_rom" {
@@ -146,7 +146,7 @@ test "bestcoder_rom" {
 
     var index : usize = 0;
     while (index < 500) : (index += 1) {
-        emu.cycle();
+        try emu.cycle();
     }
 
     const ExpectedCoords = struct {
@@ -330,7 +330,7 @@ test "bestcoder_rom" {
     };
 
     for(expected) |coords| {
-        expect(emu.display[coords.y][coords.x]);
+        try expect(emu.display[coords.y][coords.x]);
     }
 
 }
