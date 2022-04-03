@@ -142,6 +142,7 @@ pub fn main() anyerror!void {
                 },
 
                 c.SDL_KEYUP => emu.flags.current_key_pressed = null,
+                
                 c.SDL_USEREVENT => {
                     switch(sdl_event.user.code){
                         DISPLAY_EVENT => {
