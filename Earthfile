@@ -27,9 +27,9 @@ build-test-linux:
 build-bin-linux:
     FROM +env-linux
     RUN zig build
-    SAVE ARTIFACT zig-output/chipz
+    SAVE ARTIFACT zig-out/bin/chipz chipz
 
 build-linux:
     BUILD +build-test-linux
-    BUILD +build-bin-linux
-    SAVE ARTIFACT +build-bin-linux/chipz
+    COPY +build-bin-linux/chipz chipz
+    SAVE ARTIFACT chipz
