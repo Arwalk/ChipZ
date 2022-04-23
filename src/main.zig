@@ -72,7 +72,7 @@ pub fn main() anyerror!void {
 
     const file_path = args[1];
 
-    var file_handle = try std.fs.openFileAbsolute(file_path, .{.read = true, .write = false});
+    var file_handle = try std.fs.cwd().openFile(file_path, .{.read = true, .write = false});
     defer file_handle.close();
 
     var buffer = try file_handle.readToEndAlloc(gpa, 4096-0x200);
