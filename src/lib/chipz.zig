@@ -3,7 +3,7 @@ const random = std.crypto.random;
 const Stack = std.ArrayList(u16);
 
 /// This is the default font found on Tobias' guide.
-const default_font = [_]u8 {
+const default_font = [_]u8{
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
     0x20, 0x60, 0x20, 0x20, 0x70, // 1
     0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
@@ -19,11 +19,11 @@ const default_font = [_]u8 {
     0xF0, 0x80, 0x80, 0x80, 0xF0, // C
     0xE0, 0x90, 0x90, 0x90, 0xE0, // D
     0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
-    0xF0, 0x80, 0xF0, 0x80, 0x80  // F
+    0xF0, 0x80, 0xF0, 0x80, 0x80, // F
 };
 
 /// An enum for the possible key presses.
-pub const Key = enum(u8){
+pub const Key = enum(u8) {
     Zero = 0,
     One = 1,
     Two = 2,
@@ -42,10 +42,7 @@ pub const Key = enum(u8){
     F = 0xF,
 };
 
-pub const ExecuteError = error {
-    UnknownInstruction,
-    Unsupported0x0NNN
-};
+pub const ExecuteError = error{ UnknownInstruction, Unsupported0x0NNN };
 
 /// The main structure for Chip8 emulation.
 pub const ChipZ = struct {
@@ -58,7 +55,7 @@ pub const ChipZ = struct {
     index_register: u16,
     registers: [16]u8,
 
-    flags : struct {
+    flags: struct {
         display_update: bool,
         current_key_pressed: ?Key,
     },
@@ -72,24 +69,10 @@ pub const ChipZ = struct {
     /// Namely, it inits the memory to and display to 0, prepares the stack
     /// It sets then the default font using set_font.
     pub fn init(allocator: std.mem.Allocator) ChipZ {
-        var chip = ChipZ{
-            .memory = [1]u8{0} ** 4096,
-            .display = [_][32]bool{[_]bool{false} ** 32} ** 64,
-            .stack = Stack.init(allocator),
-            .timer_delay = 0,
-            .timer_sound = 0,
-            .program_counter = 0,
-            .index_register = 0,
-            .registers = [_]u8{0} ** 16,
-            .flags = .{
-                .display_update = false,
-                .current_key_pressed = null,
-            },
-            .configuration = .{
-                .shift_operations_sets_ry_into_rx = false,
-                .bnnn_is_bxnn = false
-            }
-        };
+        var chip = ChipZ{ .memory = [1]u8{0} ** 4096, .display = [_][32]bool{[_]bool{false} ** 32} ** 64, .stack = Stack.init(allocator), .timer_delay = 0, .timer_sound = 0, .program_counter = 0, .index_register = 0, .registers = [_]u8{0} ** 16, .flags = .{
+            .display_update = false,
+            .current_key_pressed = null,
+        }, .configuration = .{ .shift_operations_sets_ry_into_rx = false, .bnnn_is_bxnn = false } };
 
         chip.set_font(default_font);
 
@@ -98,8 +81,8 @@ pub const ChipZ = struct {
 
     /// Loads a program in memory, starting at address 0x200.
     pub fn load_program(self: *ChipZ, program: []u8) void {
-        for(program) |byte, index| {
-            self.memory[index+0x200] = byte;
+        for (program) |byte, index| {
+            self.memory[index + 0x200] = byte;
         }
         self.program_counter = 0x200;
     }
@@ -110,9 +93,9 @@ pub const ChipZ = struct {
     }
 
     /// sets the spedified font at index 0x50 
-    pub fn set_font(self: *ChipZ, font: [16*5]u8) void {
+    pub fn set_font(self: *ChipZ, font: [16 * 5]u8) void {
         for (font) |byte, index| {
-            self.memory[index+0x50] = byte;
+            self.memory[index + 0x50] = byte;
         }
     }
 
@@ -129,7 +112,7 @@ pub const ChipZ = struct {
     /// The use of defer is absolutely unecessary here, except if, like me, you enjoy having the return value at the end.
     fn fetch(self: *ChipZ) u16 {
         defer self.program_counter += 2;
-        return (@intCast(u16, self.memory[self.program_counter]) << 8) + self.memory[self.program_counter+1];
+        return (@intCast(u16, self.memory[self.program_counter]) << 8) + self.memory[self.program_counter + 1];
     }
 
     // All functions starting with op_ are individual operations.
@@ -141,7 +124,7 @@ pub const ChipZ = struct {
             for (row) |*column| {
                 column.* = false;
             }
-        } 
+        }
     }
 
     /// Jumps to address NNN.
@@ -174,20 +157,19 @@ pub const ChipZ = struct {
         self.registers[0xF] = 0;
         self.flags.display_update = true;
 
-        for (self.memory[self.index_register..self.index_register+base_height]) |sprite_line, index_sprite| {
+        for (self.memory[self.index_register .. self.index_register + base_height]) |sprite_line, index_sprite| {
             var x: u4 = 0;
-            while (x < 8) : ( x += 1) {
-                if(((@intCast(usize, sprite_line) >> (7-x)) & 1) == 1) {
-                    const coord_x = (col+x)%64;
-                    const coord_y = (lin+index_sprite)%32;
-                    if(self.display[coord_x][coord_y]) {
+            while (x < 8) : (x += 1) {
+                if (((@intCast(usize, sprite_line) >> (7 - x)) & 1) == 1) {
+                    const coord_x = (col + x) % 64;
+                    const coord_y = (lin + index_sprite) % 32;
+                    if (self.display[coord_x][coord_y]) {
                         self.registers[0xF] = self.registers[0xF] | 1;
                     }
                     self.display[coord_x][coord_y] = !self.display[coord_x][coord_y];
                 }
             }
         }
-        
     }
 
     /// return from subroutine
@@ -203,50 +185,50 @@ pub const ChipZ = struct {
 
     /// skip instruction if VX == value
     fn op_3XNN(self: *ChipZ, register: u4, value: u8) void {
-        if(self.registers[register] == value) {
+        if (self.registers[register] == value) {
             self.program_counter += 2;
         }
     }
 
     /// skip instruction if VX != value
     fn op_4XNN(self: *ChipZ, register: u4, value: u8) void {
-        if(self.registers[register] != value) {
+        if (self.registers[register] != value) {
             self.program_counter += 2;
         }
     }
 
     /// skip instruction if VX == VY
     fn op_5XY0(self: *ChipZ, register_a: u4, register_b: u4) void {
-        if(self.registers[register_a] == self.registers[register_b]) {
+        if (self.registers[register_a] == self.registers[register_b]) {
             self.program_counter += 2;
         }
     }
 
     /// skip instruction if VX != VY
     fn op_9XY0(self: *ChipZ, register_a: u4, register_b: u4) void {
-        if(self.registers[register_a] != self.registers[register_b]) {
+        if (self.registers[register_a] != self.registers[register_b]) {
             self.program_counter += 2;
         }
     }
 
     /// Sets VX to the value of VY.
     fn op_8XY0(self: *ChipZ, x: u4, y: u4) void {
-        self.registers[x] =  self.registers[y];
+        self.registers[x] = self.registers[y];
     }
 
     /// VX is set to the bitwise logical disjunction (OR) of VX and VY.
     fn op_8XY1(self: *ChipZ, x: u4, y: u4) void {
-        self.registers[x] =  self.registers[x] | self.registers[y];
+        self.registers[x] = self.registers[x] | self.registers[y];
     }
 
     /// VX is set to the bitwise logical conjunction (AND) of VX and VY
     fn op_8XY2(self: *ChipZ, x: u4, y: u4) void {
-        self.registers[x] =  self.registers[x] & self.registers[y];
+        self.registers[x] = self.registers[x] & self.registers[y];
     }
 
     /// VX is set to the bitwise exclusive OR (XOR) of VX and VY. 
     fn op_8XY3(self: *ChipZ, x: u4, y: u4) void {
-        self.registers[x] =  self.registers[x] ^ self.registers[y];
+        self.registers[x] = self.registers[x] ^ self.registers[y];
     }
 
     /// VX is set to the value of VX plus the value of VY
@@ -255,7 +237,7 @@ pub const ChipZ = struct {
     /// If it doesn’t overflow, VF is set to 0.
     fn op_8XY4(self: *ChipZ, x: u4, y: u4) void {
         const overflow = @addWithOverflow(u8, self.registers[x], self.registers[y], &self.registers[x]);
-        self.registers[0xF] = if(overflow) 1 else 0;
+        self.registers[0xF] = if (overflow) 1 else 0;
     }
 
     /// sets VX to the result of VX - VY.
@@ -265,7 +247,7 @@ pub const ChipZ = struct {
     /// Another way of thinking of it is that VF is set to 1 before the subtraction, and then the subtraction either borrows from VF (setting it to 0) or not.
     fn op_8XY5(self: *ChipZ, x: u4, y: u4) void {
         _ = @subWithOverflow(u8, self.registers[x], self.registers[y], &self.registers[x]);
-        self.registers[0xF] = if(self.registers[x] > self.registers[y])  0 else 1;
+        self.registers[0xF] = if (self.registers[x] > self.registers[y]) 0 else 1;
     }
 
     /// sets VX to the result of VY - VX.
@@ -280,36 +262,34 @@ pub const ChipZ = struct {
 
     /// shift 1 bit right for vx
     fn op_8XY6(self: *ChipZ, x: u4, y: u4) void {
-        if(self.configuration.shift_operations_sets_ry_into_rx) {
+        if (self.configuration.shift_operations_sets_ry_into_rx) {
             self.registers[x] = self.registers[y];
         }
-        
-        self.registers[0xF] = if(self.registers[x] & 1 == 1)  1 else 0;
-        
+
+        self.registers[0xF] = if (self.registers[x] & 1 == 1) 1 else 0;
+
         self.registers[x] = self.registers[x] >> 1;
     }
 
     /// shift 1 bit left for vx
     fn op_8XYE(self: *ChipZ, x: u4, y: u4) void {
-        if(self.configuration.shift_operations_sets_ry_into_rx) {
+        if (self.configuration.shift_operations_sets_ry_into_rx) {
             self.registers[x] = self.registers[y];
         }
 
         const overflow = @shlWithOverflow(u8, self.registers[x], 1, &self.registers[x]);
 
-        self.registers[0xF] = if(overflow) 1 else 0;   
+        self.registers[0xF] = if (overflow) 1 else 0;
     }
 
     /// BNNN: Jump with offset
     fn op_BNNN(self: *ChipZ, op: OpDetails) void {
-        if(self.configuration.bnnn_is_bxnn){
+        if (self.configuration.bnnn_is_bxnn) {
             const address = op.get_8bitconstant();
             const x = op.get_x();
 
             self.program_counter = address + self.registers[x];
-        }
-        else
-        {
+        } else {
             const address = op.get_address();
             self.program_counter = address + self.registers[0];
         }
@@ -323,9 +303,8 @@ pub const ChipZ = struct {
 
     /// EX9E will skip one instruction (increment PC by 2) if the key corresponding to the value in VX is pressed.
     fn op_EX9E(self: *ChipZ, x: u4) void {
-        if(self.flags.current_key_pressed) |key| {
-            if(@enumToInt(key) == self.registers[x])
-            {
+        if (self.flags.current_key_pressed) |key| {
+            if (@enumToInt(key) == self.registers[x]) {
                 self.program_counter += 2;
             }
         }
@@ -333,14 +312,11 @@ pub const ChipZ = struct {
 
     /// EXA1 skips if the key corresponding to the value in VX is not pressed.
     fn op_EXA1(self: *ChipZ, x: u4) void {
-        if(self.flags.current_key_pressed) |key| {
-            if(@enumToInt(key) != self.registers[x])
-            {
+        if (self.flags.current_key_pressed) |key| {
+            if (@enumToInt(key) != self.registers[x]) {
                 self.program_counter += 2;
             }
-        }
-        else
-        {
+        } else {
             self.program_counter += 2;
         }
     }
@@ -363,7 +339,7 @@ pub const ChipZ = struct {
     /// The index register I will get the value in VX added to it.
     fn op_FX1E(self: *ChipZ, x: u4) void {
         self.index_register = self.index_register + self.registers[x];
-        if(self.index_register > 0xFFF) {
+        if (self.index_register > 0xFFF) {
             self.registers[0xF] = 1;
             self.index_register &= 0xFFF;
         }
@@ -375,11 +351,9 @@ pub const ChipZ = struct {
     /// Otherwise, PC should simply not be incremented.
     /// If a key is pressed while this instruction is waiting for input, its hexadecimal value will be put in VX and execution continues.
     fn op_FX0A(self: *ChipZ, x: u4) void {
-        if(self.flags.current_key_pressed) |key| {
+        if (self.flags.current_key_pressed) |key| {
             self.registers[x] = @enumToInt(key);
-        }
-        else
-        {
+        } else {
             self.program_counter -= 2;
         }
     }
@@ -400,70 +374,67 @@ pub const ChipZ = struct {
 
     /// store in memory
     fn op_FX55(self: *ChipZ, x: u4) void {
-        var index : usize = 0;
+        var index: usize = 0;
         while (index <= x) : (index += 1) {
-            self.memory[self.index_register+index] = self.registers[index];
+            self.memory[self.index_register + index] = self.registers[index];
         }
     }
 
     /// load from memory
     fn op_FX65(self: *ChipZ, x: u4) void {
-        var index : usize = 0;
+        var index: usize = 0;
         while (index <= x) : (index += 1) {
-            self.registers[index] = self.memory[self.index_register+index];
+            self.registers[index] = self.memory[self.index_register + index];
         }
     }
 
     /// Simple structure to decode a 2-byte instruction into potential parameters.
     const OpDetails = struct {
-        opcode : u4,
-        raw : u16,
+        opcode: u4,
+        raw: u16,
 
         fn get(operation: u16) OpDetails {
-            return OpDetails {
-                .opcode = @intCast(u4, (operation & 0xF000) >> 12),
-                .raw = operation
-            };
+            return OpDetails{ .opcode = @intCast(u4, (operation & 0xF000) >> 12), .raw = operation };
         }
 
         /// quick tool for operation parameter type address.
         fn get_address(self: OpDetails) u12 {
-            return @intCast(u12 , self.raw & 0xFFF);
+            return @intCast(u12, self.raw & 0xFFF);
         }
 
         /// quick tool for operation parameter type 8 bit constant as the last byte.
         fn get_8bitconstant(self: OpDetails) u8 {
-            return @intCast(u8 , self.raw & 0xFF);
+            return @intCast(u8, self.raw & 0xFF);
         }
 
         /// quick tool for operation parameter type 4 bit constant as the last nibble.
         fn get_4bitconstant(self: OpDetails) u4 {
-            return @intCast(u4 , self.raw & 0xF);
+            return @intCast(u4, self.raw & 0xF);
         }
 
         /// quick tool for operation parameter type "x", the second nibble.
         fn get_x(self: OpDetails) u4 {
-            return @intCast(u4 ,(self.raw & 0x0F00) >> 8);
+            return @intCast(u4, (self.raw & 0x0F00) >> 8);
         }
 
         /// quick tool for operation parameter type "y", the third nibble.
         fn get_y(self: OpDetails) u4 {
-            return @intCast(u4 ,(self.raw & 0x00F0) >> 4);
+            return @intCast(u4, (self.raw & 0x00F0) >> 4);
         }
     };
 
     /// Decodes the instruction, finds the appropriate function and execute it.
     fn decode_and_execute(self: *ChipZ, opcode: u16) !void {
-        errdefer std.log.err("Faulting instruction {x} at program counter value {x}", .{opcode, self.program_counter});
+        errdefer std.log.err("Faulting instruction {x} at program counter value {x}", .{ opcode, self.program_counter });
         const op = OpDetails.get(opcode);
-        switch(op.opcode) {
+        switch (op.opcode) {
             0x0 => {
-                switch(opcode) {
+                switch (opcode) {
                     0x00E0 => self.op_00E0(),
                     0x00EE => self.op_00EE(),
                     else => {
                         return ExecuteError.Unsupported0x0NNN; // Calls machine code routine (RCA 1802 for COSMAC VIP) at address NNN. Not necessary for most ROMs.
-                    }
+                    },
                 }
             },
             0x1 => self.op_1NNN(op.get_address()),
@@ -471,15 +442,14 @@ pub const ChipZ = struct {
             0x3 => self.op_3XNN(op.get_x(), op.get_8bitconstant()),
             0x4 => self.op_4XNN(op.get_x(), op.get_8bitconstant()),
             0x5 => {
-                if((opcode & 0xF) == 0){
+                if ((opcode & 0xF) == 0) {
                     self.op_5XY0(op.get_x(), op.get_y());
-                }
-                else return ExecuteError.UnknownInstruction;
+                } else return ExecuteError.UnknownInstruction;
             },
             0x6 => self.op_6XNN(op.get_x(), op.get_8bitconstant()),
             0x7 => self.op_7XNN(op.get_x(), op.get_8bitconstant()),
             0x8 => {
-                const last_nibble : u4 = @intCast(u4, opcode & 0xF);
+                const last_nibble: u4 = @intCast(u4, opcode & 0xF);
                 switch (last_nibble) {
                     0x0 => self.op_8XY0(op.get_x(), op.get_y()),
                     0x1 => self.op_8XY1(op.get_x(), op.get_y()),
@@ -494,17 +464,16 @@ pub const ChipZ = struct {
                 }
             },
             0x9 => {
-                if((opcode & 0xF) == 0){
+                if ((opcode & 0xF) == 0) {
                     self.op_9XY0(op.get_x(), op.get_y());
-                }
-                else return ExecuteError.UnknownInstruction;
+                } else return ExecuteError.UnknownInstruction;
             },
             0xA => self.op_ANNN(op.get_address()),
             0xB => self.op_BNNN(op),
             0xC => self.op_CXNN(op.get_x(), op.get_8bitconstant()),
             0xD => self.op_DXYN(op.get_x(), op.get_y(), op.get_4bitconstant()),
             0xE => {
-                const last_byte : u8 = @intCast(u8, opcode & 0xFF);
+                const last_byte: u8 = @intCast(u8, opcode & 0xFF);
                 switch (last_byte) {
                     0x9E => self.op_EX9E(op.get_x()),
                     0xA1 => self.op_EXA1(op.get_x()),

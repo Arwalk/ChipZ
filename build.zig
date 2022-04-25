@@ -13,12 +13,7 @@ pub fn build(b: *std.build.Builder) void {
     // between Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall.
     const mode = b.standardReleaseOptions();
 
-    const packages = [_]std.build.Pkg {
-        .{
-            .name = "chipz",
-            .path = std.build.FileSource.relative("src/lib/chipz.zig")
-        }
-    };
+    const packages = [_]std.build.Pkg{.{ .name = "chipz", .path = std.build.FileSource.relative("src/lib/chipz.zig") }};
 
     const exe = b.addExecutable("chipz", "src/main.zig");
     exe.addPackage(packages[0]);
@@ -40,7 +35,7 @@ pub fn build(b: *std.build.Builder) void {
     // tests
     const test_step = b.step("test", "test everything");
 
-    const tests = [_]*std.build.LibExeObjStep {
+    const tests = [_]*std.build.LibExeObjStep{
         b.addTest("tests/tests.zig"),
     };
 
