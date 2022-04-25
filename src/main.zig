@@ -97,8 +97,6 @@ pub fn main() anyerror!void {
 
     mainloop: while (true) {
         var sdl_event: c.SDL_Event = undefined;
-        var force_redraw: bool = false;
-        defer force_redraw = false;
         while (c.SDL_PollEvent(&sdl_event) != 0) {
             switch (sdl_event.type) {
                 c.SDL_QUIT => break :mainloop,

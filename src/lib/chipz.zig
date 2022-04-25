@@ -56,7 +56,7 @@ pub const ChipZ = struct {
     registers: [16]u8,
 
     flags: struct {
-        display_update: bool,
+        display_update: bool,   // This flag is set to True if the latest command executed involves updating the display.
         current_key_pressed: ?Key,
     },
 
