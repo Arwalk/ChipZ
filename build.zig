@@ -1,6 +1,6 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
-//const sdl_path = @embedFile("sdl_path.txt");
 
 pub fn build(b: *std.build.Builder) void {
     // Standard target options allows the person running `zig build` to choose
@@ -19,9 +19,13 @@ pub fn build(b: *std.build.Builder) void {
     exe.addPackage(packages[0]);
     exe.setTarget(target);
     exe.setBuildMode(mode);
-    //exe.addIncludeDir(sdl_path ++ "include");
-    //exe.addLibPath(sdl_path ++ "lib\\x64");
-    //b.installBinFile(sdl_path ++ "lib\\x64\\SDL2.dll", "SDL2.dll");
+    if(builtin.target.os.tag == .windows) {
+        const sdl_path = @embedFile("sdl_path.txt");
+        exe.addIncludeDir(sdl_path ++ "include");
+        exe.addLibPath(sdl_path ++ "lib\\x64");
+        b.installBinFile(sdl_path ++ "lib\\x64\\SDL2.dll", "SDL2.dll");
+    }
+    
     exe.linkSystemLibrary("sdl2");
     exe.linkLibC();
     exe.install();
