@@ -1,7 +1,6 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
-
 pub fn build(b: *std.build.Builder) void {
     // Standard target options allows the person running `zig build` to choose
     // what target to build for. Here we do not override the defaults, which
@@ -13,19 +12,19 @@ pub fn build(b: *std.build.Builder) void {
     // between Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall.
     const mode = b.standardReleaseOptions();
 
-    const packages = [_]std.build.Pkg{.{ .name = "chipz", .path = std.build.FileSource.relative("src/lib/chipz.zig") }};
+    const packages = [_]std.build.Pkg{.{ .name = "chipz", .source = std.build.FileSource.relative("src/lib/chipz.zig") }};
 
     const exe = b.addExecutable("chipz", "src/main.zig");
     exe.addPackage(packages[0]);
     exe.setTarget(target);
     exe.setBuildMode(mode);
-    if(builtin.target.os.tag == .windows) {
+    if (builtin.target.os.tag == .windows) {
         const sdl_path = @embedFile("sdl_path.txt");
         exe.addIncludeDir(sdl_path ++ "include");
         exe.addLibPath(sdl_path ++ "lib\\x64");
         b.installBinFile(sdl_path ++ "lib\\x64\\SDL2.dll", "SDL2.dll");
     }
-    
+
     exe.linkSystemLibrary("sdl2");
     exe.linkLibC();
     exe.install();

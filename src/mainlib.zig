@@ -8,12 +8,10 @@ const c = @cImport({
     @cInclude("SDL.h");
 });
 
-
 const gpa = general_purpose_allocator.allocator();
 var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
 
 const DISPLAY_EVENT: u32 = 0;
-
 
 fn manage_timer_callback(interval: u32, params: ?*anyopaque) callconv(.C) u32 {
     if (params) |ptr| {
@@ -61,7 +59,7 @@ fn publish_event_display() void {
     _ = c.SDL_PushEvent(&event);
 }
 
-pub fn run(buffer : []u8) anyerror!void {
+pub fn run(buffer: []u8) anyerror!void {
     _ = c.SDL_Init(c.SDL_INIT_VIDEO);
     defer c.SDL_Quit();
 
@@ -151,7 +149,6 @@ pub fn run(buffer : []u8) anyerror!void {
                                         _ = c.SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xff);
                                     }
                                     _ = c.SDL_RenderFillRect(renderer, &rect);
-
                                 }
                             }
                             c.SDL_RenderPresent(renderer);

@@ -56,7 +56,7 @@ pub const ChipZ = struct {
     registers: [16]u8,
 
     flags: struct {
-        display_update: bool,   // This flag is set to True if the latest command executed involves updating the display.
+        display_update: bool, // This flag is set to True if the latest command executed involves updating the display.
         current_key_pressed: ?Key,
     },
 
@@ -92,7 +92,7 @@ pub const ChipZ = struct {
         self.stack.deinit();
     }
 
-    /// sets the spedified font at index 0x50 
+    /// sets the spedified font at index 0x50
     pub fn set_font(self: *ChipZ, font: [16 * 5]u8) void {
         for (font) |byte, index| {
             self.memory[index + 0x50] = byte;
@@ -226,14 +226,14 @@ pub const ChipZ = struct {
         self.registers[x] = self.registers[x] & self.registers[y];
     }
 
-    /// VX is set to the bitwise exclusive OR (XOR) of VX and VY. 
+    /// VX is set to the bitwise exclusive OR (XOR) of VX and VY.
     fn op_8XY3(self: *ChipZ, x: u4, y: u4) void {
         self.registers[x] = self.registers[x] ^ self.registers[y];
     }
 
     /// VX is set to the value of VX plus the value of VY
-    /// Unlike 7XNN, this addition will affect the carry flag. 
-    /// If the result is larger than 255 (and thus overflows the 8-bit register VX), the flag register VF is set to 1. 
+    /// Unlike 7XNN, this addition will affect the carry flag.
+    /// If the result is larger than 255 (and thus overflows the 8-bit register VX), the flag register VF is set to 1.
     /// If it doesn’t overflow, VF is set to 0.
     fn op_8XY4(self: *ChipZ, x: u4, y: u4) void {
         const overflow = @addWithOverflow(u8, self.registers[x], self.registers[y], &self.registers[x]);
