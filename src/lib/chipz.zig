@@ -56,7 +56,7 @@ pub const ChipZ = struct {
     registers: [16]u8,
 
     flags: struct {
-        display_update: bool,   // This flag is set to True if the latest command executed involves updating the display.
+        display_update: bool, // This flag is set to True if the latest command executed involves updating the display.
         current_key_pressed: ?Key,
     },
 
@@ -81,7 +81,7 @@ pub const ChipZ = struct {
 
     /// Loads a program in memory, starting at address 0x200.
     pub fn load_program(self: *ChipZ, program: []u8) void {
-        for (program) |byte, index| {
+        for (program, 0..) |byte, index| {
             self.memory[index + 0x200] = byte;
         }
         self.program_counter = 0x200;
@@ -92,9 +92,9 @@ pub const ChipZ = struct {
         self.stack.deinit();
     }
 
-    /// sets the spedified font at index 0x50 
+    /// sets the spedified font at index 0x50
     pub fn set_font(self: *ChipZ, font: [16 * 5]u8) void {
-        for (font) |byte, index| {
+        for (font, 0..) |byte, index| {
             self.memory[index + 0x50] = byte;
         }
     }
@@ -112,7 +112,7 @@ pub const ChipZ = struct {
     /// The use of defer is absolutely unecessary here, except if, like me, you enjoy having the return value at the end.
     fn fetch(self: *ChipZ) u16 {
         defer self.program_counter += 2;
-        return (@intCast(u16, self.memory[self.program_counter]) << 8) + self.memory[self.program_counter + 1];
+        return (@as(u16, @intCast(self.memory[self.program_counter])) << 8) + self.memory[self.program_counter + 1];
     }
 
     // All functions starting with op_ are individual operations.
@@ -120,7 +120,7 @@ pub const ChipZ = struct {
 
     /// Clears the screen.
     fn op_00E0(self: *ChipZ) void {
-        for (self.display) |*row| {
+        for (&self.display) |*row| {
             for (row) |*column| {
                 column.* = false;
             }
@@ -139,7 +139,7 @@ pub const ChipZ = struct {
 
     /// Adds NN to VX. (Carry flag is not changed)
     fn op_7XNN(self: *ChipZ, register: u4, value: u8) void {
-        _ = @addWithOverflow(u8, self.registers[register], value, &self.registers[register]);
+        self.registers[register] = @addWithOverflow(self.registers[register], value)[0];
     }
 
     /// Sets I to the address NNN.
@@ -157,10 +157,10 @@ pub const ChipZ = struct {
         self.registers[0xF] = 0;
         self.flags.display_update = true;
 
-        for (self.memory[self.index_register .. self.index_register + base_height]) |sprite_line, index_sprite| {
+        for (self.memory[self.index_register .. self.index_register + base_height], 0..) |sprite_line, index_sprite| {
             var x: u4 = 0;
             while (x < 8) : (x += 1) {
-                if (((@intCast(usize, sprite_line) >> (7 - x)) & 1) == 1) {
+                if (((@as(usize, @intCast(sprite_line)) >> (7 - x)) & 1) == 1) {
                     const coord_x = (col + x) % 64;
                     const coord_y = (lin + index_sprite) % 32;
                     if (self.display[coord_x][coord_y]) {
@@ -226,18 +226,19 @@ pub const ChipZ = struct {
         self.registers[x] = self.registers[x] & self.registers[y];
     }
 
-    /// VX is set to the bitwise exclusive OR (XOR) of VX and VY. 
+    /// VX is set to the bitwise exclusive OR (XOR) of VX and VY.
     fn op_8XY3(self: *ChipZ, x: u4, y: u4) void {
         self.registers[x] = self.registers[x] ^ self.registers[y];
     }
 
     /// VX is set to the value of VX plus the value of VY
-    /// Unlike 7XNN, this addition will affect the carry flag. 
-    /// If the result is larger than 255 (and thus overflows the 8-bit register VX), the flag register VF is set to 1. 
+    /// Unlike 7XNN, this addition will affect the carry flag.
+    /// If the result is larger than 255 (and thus overflows the 8-bit register VX), the flag register VF is set to 1.
     /// If it doesn’t overflow, VF is set to 0.
     fn op_8XY4(self: *ChipZ, x: u4, y: u4) void {
-        const overflow = @addWithOverflow(u8, self.registers[x], self.registers[y], &self.registers[x]);
-        self.registers[0xF] = if (overflow) 1 else 0;
+        const overflow = @addWithOverflow(self.registers[x], self.registers[y]);
+        self.registers[x] = overflow[0];
+        self.registers[0xF] = if (overflow[1] != 0) 1 else 0;
     }
 
     /// sets VX to the result of VX - VY.
@@ -246,7 +247,7 @@ pub const ChipZ = struct {
     /// If the subtrahend is larger, and we “underflow” the result, VF is set to 0.
     /// Another way of thinking of it is that VF is set to 1 before the subtraction, and then the subtraction either borrows from VF (setting it to 0) or not.
     fn op_8XY5(self: *ChipZ, x: u4, y: u4) void {
-        _ = @subWithOverflow(u8, self.registers[x], self.registers[y], &self.registers[x]);
+        self.registers[x] = @subWithOverflow(self.registers[x], self.registers[y])[0];
         self.registers[0xF] = if (self.registers[x] > self.registers[y]) 0 else 1;
     }
 
@@ -256,7 +257,7 @@ pub const ChipZ = struct {
     /// If the subtrahend is larger, and we “underflow” the result, VF is set to 0.
     /// Another way of thinking of it is that VF is set to 1 before the subtraction, and then the subtraction either borrows from VF (setting it to 0) or not.
     fn op_8XY7(self: *ChipZ, x: u4, y: u4) void {
-        _ = @subWithOverflow(u8, self.registers[y], self.registers[x], &self.registers[x]);
+        self.registers[x] = @subWithOverflow(self.registers[y], self.registers[x])[0];
         self.registers[0xF] = if (self.registers[y] > self.registers[x]) 1 else 0;
     }
 
@@ -277,9 +278,9 @@ pub const ChipZ = struct {
             self.registers[x] = self.registers[y];
         }
 
-        const overflow = @shlWithOverflow(u8, self.registers[x], 1, &self.registers[x]);
-
-        self.registers[0xF] = if (overflow) 1 else 0;
+        const overflow = @shlWithOverflow(self.registers[x], 1);
+        self.registers[x] = overflow[0];
+        self.registers[0xF] = if (overflow[1] != 0) 1 else 0;
     }
 
     /// BNNN: Jump with offset
@@ -304,7 +305,7 @@ pub const ChipZ = struct {
     /// EX9E will skip one instruction (increment PC by 2) if the key corresponding to the value in VX is pressed.
     fn op_EX9E(self: *ChipZ, x: u4) void {
         if (self.flags.current_key_pressed) |key| {
-            if (@enumToInt(key) == self.registers[x]) {
+            if (@intFromEnum(key) == self.registers[x]) {
                 self.program_counter += 2;
             }
         }
@@ -313,7 +314,7 @@ pub const ChipZ = struct {
     /// EXA1 skips if the key corresponding to the value in VX is not pressed.
     fn op_EXA1(self: *ChipZ, x: u4) void {
         if (self.flags.current_key_pressed) |key| {
-            if (@enumToInt(key) != self.registers[x]) {
+            if (@intFromEnum(key) != self.registers[x]) {
                 self.program_counter += 2;
             }
         } else {
@@ -352,7 +353,7 @@ pub const ChipZ = struct {
     /// If a key is pressed while this instruction is waiting for input, its hexadecimal value will be put in VX and execution continues.
     fn op_FX0A(self: *ChipZ, x: u4) void {
         if (self.flags.current_key_pressed) |key| {
-            self.registers[x] = @enumToInt(key);
+            self.registers[x] = @intFromEnum(key);
         } else {
             self.program_counter -= 2;
         }
@@ -366,7 +367,7 @@ pub const ChipZ = struct {
 
     /// BCD conversion
     fn op_FX33(self: *ChipZ, x: u4) void {
-        var value = self.registers[x];
+        const value = self.registers[x];
         self.memory[self.index_register] = @divFloor(value, 100);
         self.memory[self.index_register + 1] = @divFloor(value, 10) % 10;
         self.memory[self.index_register + 2] = value % 10;
@@ -394,32 +395,32 @@ pub const ChipZ = struct {
         raw: u16,
 
         fn get(operation: u16) OpDetails {
-            return OpDetails{ .opcode = @intCast(u4, (operation & 0xF000) >> 12), .raw = operation };
+            return OpDetails{ .opcode = @intCast((operation & 0xF000) >> 12), .raw = operation };
         }
 
         /// quick tool for operation parameter type address.
         fn get_address(self: OpDetails) u12 {
-            return @intCast(u12, self.raw & 0xFFF);
+            return @intCast(self.raw & 0xFFF);
         }
 
         /// quick tool for operation parameter type 8 bit constant as the last byte.
         fn get_8bitconstant(self: OpDetails) u8 {
-            return @intCast(u8, self.raw & 0xFF);
+            return @intCast(self.raw & 0xFF);
         }
 
         /// quick tool for operation parameter type 4 bit constant as the last nibble.
         fn get_4bitconstant(self: OpDetails) u4 {
-            return @intCast(u4, self.raw & 0xF);
+            return @intCast(self.raw & 0xF);
         }
 
         /// quick tool for operation parameter type "x", the second nibble.
         fn get_x(self: OpDetails) u4 {
-            return @intCast(u4, (self.raw & 0x0F00) >> 8);
+            return @intCast((self.raw & 0x0F00) >> 8);
         }
 
         /// quick tool for operation parameter type "y", the third nibble.
         fn get_y(self: OpDetails) u4 {
-            return @intCast(u4, (self.raw & 0x00F0) >> 4);
+            return @intCast((self.raw & 0x00F0) >> 4);
         }
     };
 
@@ -449,7 +450,7 @@ pub const ChipZ = struct {
             0x6 => self.op_6XNN(op.get_x(), op.get_8bitconstant()),
             0x7 => self.op_7XNN(op.get_x(), op.get_8bitconstant()),
             0x8 => {
-                const last_nibble: u4 = @intCast(u4, opcode & 0xF);
+                const last_nibble: u4 = @intCast(opcode & 0xF);
                 switch (last_nibble) {
                     0x0 => self.op_8XY0(op.get_x(), op.get_y()),
                     0x1 => self.op_8XY1(op.get_x(), op.get_y()),
@@ -473,7 +474,7 @@ pub const ChipZ = struct {
             0xC => self.op_CXNN(op.get_x(), op.get_8bitconstant()),
             0xD => self.op_DXYN(op.get_x(), op.get_y(), op.get_4bitconstant()),
             0xE => {
-                const last_byte: u8 = @intCast(u8, opcode & 0xFF);
+                const last_byte: u8 = @intCast(opcode & 0xFF);
                 switch (last_byte) {
                     0x9E => self.op_EX9E(op.get_x()),
                     0xA1 => self.op_EXA1(op.get_x()),

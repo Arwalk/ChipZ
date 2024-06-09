@@ -129,16 +129,16 @@ test "BCD conversion" {
 
     try emu.cycle();
 
-    try expect_equal(@intCast(u8, 6), emu.memory[0x502]);
-    try expect_equal(@intCast(u8, 5), emu.memory[0x501]);
-    try expect_equal(@intCast(u8, 1), emu.memory[0x500]);
+    try expect_equal(@as(u8, @intCast(6)), emu.memory[0x502]);
+    try expect_equal(@as(u8, @intCast(5)), emu.memory[0x501]);
+    try expect_equal(@as(u8, @intCast(1)), emu.memory[0x500]);
 }
 
 test "bestcoder_rom" {
     var emu = chipz.ChipZ.init(test_allocator);
-    var file_program = @embedFile("../demo_files/bc_test.ch8");
+    const file_program = @embedFile("../demo_files/bc_test.ch8");
     var program = [_]u8{0} ** file_program.len;
-    for (file_program) |byte, index| {
+    for (file_program, 0..) |byte, index| {
         program[index] = byte;
     }
     emu.load_program(&program);

@@ -3,3 +3,4 @@ sdl_path.txt
 .vscode/**
 zig-out/**
 *.DS_Store*
+.zig-cache
