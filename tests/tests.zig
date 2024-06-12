@@ -136,7 +136,7 @@ test "BCD conversion" {
 
 test "bestcoder_rom" {
     var emu = chipz.ChipZ.init(test_allocator);
-    const file_program = @embedFile("../demo_files/bc_test.ch8");
+    const file_program = @embedFile("demo_files/bc_test.ch8");
     var program = [_]u8{0} ** file_program.len;
     for (file_program, 0..) |byte, index| {
         program[index] = byte;
