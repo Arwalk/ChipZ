@@ -8,19 +8,17 @@ const c = @cImport({
     @cInclude("SDL.h");
 });
 
-
 const gpa = general_purpose_allocator.allocator();
 var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
 
 const DISPLAY_EVENT: u32 = 0;
 
-
 fn manage_timer_callback(interval: u32, params: ?*anyopaque) callconv(.C) u32 {
     if (params) |ptr| {
-        var timer = @ptrCast(*u8, ptr);
+        const timer: *u8 = @ptrCast(ptr);
 
         if (timer.* != 0) {
-            if (@subWithOverflow(u8, timer.*, @intCast(u8, 1), timer)) {
+            if (@subWithOverflow(timer.*, 1)[1] != 0) {
                 timer.* = 0;
             }
         }
@@ -31,7 +29,7 @@ fn manage_timer_callback(interval: u32, params: ?*anyopaque) callconv(.C) u32 {
 
 fn manage_cycle_callback(interval: u32, params: ?*anyopaque) callconv(.C) u32 {
     if (params) |ptr| {
-        var emu = @ptrCast(*chipz.ChipZ, @alignCast(@alignOf(**chipz.ChipZ), ptr));
+        var emu: *chipz.ChipZ = @ptrCast(@alignCast(ptr));
 
         if (emu.cycle()) {} else |_| {
             @panic("Faulting instruction");
@@ -45,7 +43,7 @@ fn manage_cycle_callback(interval: u32, params: ?*anyopaque) callconv(.C) u32 {
 }
 
 fn publish_event_display() void {
-    var userevent = c.SDL_UserEvent{
+    const userevent = c.SDL_UserEvent{
         .type = c.SDL_USEREVENT,
         .code = DISPLAY_EVENT,
         .data1 = null,
@@ -61,14 +59,14 @@ fn publish_event_display() void {
     _ = c.SDL_PushEvent(&event);
 }
 
-pub fn run(buffer : []u8) anyerror!void {
+pub fn run(buffer: []u8) anyerror!void {
     _ = c.SDL_Init(c.SDL_INIT_VIDEO);
     defer c.SDL_Quit();
 
-    var window = c.SDL_CreateWindow("chipz", c.SDL_WINDOWPOS_CENTERED, c.SDL_WINDOWPOS_CENTERED, 64, 32, 0);
+    const window = c.SDL_CreateWindow("chipz", c.SDL_WINDOWPOS_CENTERED, c.SDL_WINDOWPOS_CENTERED, 64, 32, 0);
     defer c.SDL_DestroyWindow(window);
 
-    var renderer = c.SDL_CreateRenderer(window, 0, c.SDL_RENDERER_PRESENTVSYNC);
+    const renderer = c.SDL_CreateRenderer(window, 0, c.SDL_RENDERER_PRESENTVSYNC);
     defer c.SDL_DestroyRenderer(renderer);
 
     var emu = chipz.ChipZ.init(gpa);
@@ -143,15 +141,14 @@ pub fn run(buffer : []u8) anyerror!void {
                             while (x < 32) : (x += 1) {
                                 y = 0;
                                 while (y < 64) : (y += 1) {
-                                    rect.x = size_mult * @intCast(c_int, y);
-                                    rect.y = size_mult * @intCast(c_int, x);
+                                    rect.x = size_mult * @as(c_int, @intCast(y));
+                                    rect.y = size_mult * @as(c_int, @intCast(x));
                                     if (emu.display[y][x]) {
                                         _ = c.SDL_SetRenderDrawColor(renderer, 0xff, 0xff, 0xff, 0xff);
                                     } else {
                                         _ = c.SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xff);
                                     }
                                     _ = c.SDL_RenderFillRect(renderer, &rect);
-
                                 }
                             }
                             c.SDL_RenderPresent(renderer);
